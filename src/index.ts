@@ -24,11 +24,9 @@ const MONGO_URI = config.MONGO_URI;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://studenthub-production.up.railway.app",
-    ],
-    credentials: true,
+    origin: "*", // for open API
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(helmet());
