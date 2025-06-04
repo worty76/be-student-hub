@@ -9,8 +9,7 @@
     "dev:nocheck": "nodemon --exec ts-node --transpile-only src/index.ts",
     "build": "tsc",
     "docker:build": "docker build -t studenthub .",
-    "docker:run": "docker run -p 3000:3000 -e NODE_ENV=production studenthub",
-    "docker:run:dev": "docker run -p 3000:3000 -e NODE_ENV=development studenthub"
+    "docker:run": "docker run -p 3000:3000 studenthub"
   },
   "keywords": "[\"marketplace\", \"students\", \"second-hand\"]",
   "author": "",
