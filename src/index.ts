@@ -56,17 +56,11 @@ app.use("/api/products", productRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/comments", commentRoutes);
 
-// Handle 404 errors
-app.all("/{*any}", notFoundHandler);
-
-// Global error handler
-app.use(errorHandler);
-
 // Create HTTP server and Socket.io instance
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: config.CLIENT_URL || "*",
+    origin: "*",
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
