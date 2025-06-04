@@ -16,7 +16,7 @@ const options = {
     },
     servers: [
       {
-        url: "https://studenthub-production.up.railway.app",
+        url: "https://be-student-hub-production.up.railway.app",
         description: "Production server",
       },
       {
