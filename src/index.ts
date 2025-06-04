@@ -22,7 +22,15 @@ const PORT = config.PORT;
 const MONGO_URI = config.MONGO_URI;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://studenthub-production.up.railway.app",
+    ],
+    credentials: true,
+  })
+);
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());

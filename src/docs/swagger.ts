@@ -1,43 +1,48 @@
-import swaggerJsdoc from 'swagger-jsdoc';
-import config from '../config/config';
+import swaggerJsdoc from "swagger-jsdoc";
+import config from "../config/config";
 
 const options = {
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'StudentHub API',
-      version: '1.0.0',
-      description: 'A second-hand marketplace for students to buy, sell, chat, comment, and post items',
+      title: "StudentHub API",
+      version: "1.0.0",
+      description:
+        "A second-hand marketplace for students to buy, sell, chat, comment, and post items",
       contact: {
-        name: 'API Support',
-        email: 'support@studenthub.com'
-      }
+        name: "API Support",
+        email: "support@studenthub.com",
+      },
     },
     servers: [
       {
         url: `http://localhost:${config.PORT}`,
-        description: 'Development server'
-      }
+        description: "Development server",
+      },
+      {
+        url: "https://studenthub-production.up.railway.app",
+        description: "Production server",
+      },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
-        }
-      }
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
     },
     security: [
       {
-        bearerAuth: []
-      }
-    ]
+        bearerAuth: [],
+      },
+    ],
   },
   // Path to the API docs
-  apis: ['./src/routes/*.ts', './src/models/*.ts']
+  apis: ["./src/routes/*.ts", "./src/models/*.ts"],
 };
 
 const swaggerSpec = swaggerJsdoc(options);
 
-export default swaggerSpec; 
+export default swaggerSpec;
