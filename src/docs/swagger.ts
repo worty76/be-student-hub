@@ -16,12 +16,12 @@ const options = {
     },
     servers: [
       {
-        url: `http://localhost:${config.PORT}`,
-        description: "Development server",
-      },
-      {
         url: "https://studenthub-production.up.railway.app",
         description: "Production server",
+      },
+      {
+        url: `http://localhost:${config.PORT}`,
+        description: "Development server",
       },
     ],
     components: {
