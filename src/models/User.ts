@@ -12,6 +12,7 @@ export interface IUser extends Document {
   rating: number;
   ratingCount: number;
   favorites: mongoose.Types.ObjectId[];
+  role: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -56,7 +57,12 @@ const UserSchema = new Schema<IUser>(
     favorites: [{
       type: Schema.Types.ObjectId,
       ref: 'Product'
-    }]
+    }],
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user'
+    }
   },
   { timestamps: true }
 );
