@@ -46,4 +46,23 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     console.error('Auth middleware error:', error);
     return res.status(401).json({ message: 'Invalid token' });
   }
+};
+
+export const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // User should already be authenticated with the authenticate middleware
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required' });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Admin middleware error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
 }; 

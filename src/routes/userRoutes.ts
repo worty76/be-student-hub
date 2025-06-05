@@ -1,7 +1,7 @@
-import express from 'express';
-import { body } from 'express-validator';
-import * as userController from '../controllers/userController';
-import { authenticate } from '../middleware/auth';
+import express from "express";
+import { body } from "express-validator";
+import * as userController from "../controllers/userController";
+import { authenticate, isAdmin } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -45,6 +45,10 @@ const router = express.Router();
  *           items:
  *             type: string
  *           description: Array of product IDs saved as favorites
+ *         role:
+ *           type: string
+ *           enum: [user, admin]
+ *           description: User role (user or admin)
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -113,6 +117,10 @@ const router = express.Router();
  *                 minLength: 6
  *               name:
  *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 description: User role (defaults to 'user' if not specified)
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -130,11 +138,14 @@ const router = express.Router();
  */
 // Register new user
 router.post(
-  '/register',
+  "/register",
   [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-    body('name').notEmpty().withMessage('Name is required')
+    body("email").isEmail().withMessage("Please enter a valid email"),
+    body("password")
+      .isLength({ min: 6 })
+      .withMessage("Password must be at least 6 characters long"),
+    body("name").notEmpty().withMessage("Name is required"),
+    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
   ],
   // @ts-ignore - Type issues with Express 5
   userController.register
@@ -178,10 +189,10 @@ router.post(
  */
 // Login user
 router.post(
-  '/login',
+  "/login",
   [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').notEmpty().withMessage('Password is required')
+    body("email").isEmail().withMessage("Please enter a valid email"),
+    body("password").notEmpty().withMessage("Password is required"),
   ],
   // @ts-ignore - Type issues with Express 5
   userController.login
@@ -207,7 +218,7 @@ router.post(
  */
 // Get user profile
 // @ts-ignore - Type issues with Express 5
-router.get('/profile', authenticate, userController.getProfile);
+router.get("/profile", authenticate, userController.getProfile);
 
 /**
  * @swagger
@@ -234,6 +245,10 @@ router.get('/profile', authenticate, userController.getProfile);
  *                 type: string
  *               location:
  *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 description: User role (admin users only)
  *     responses:
  *       200:
  *         description: Profile updated
@@ -248,18 +263,143 @@ router.get('/profile', authenticate, userController.getProfile);
  */
 // Update user profile
 router.put(
-  '/profile',
+  "/profile",
   authenticate as any,
   [
-    body('name').optional(),
-    body('email').optional().isEmail().withMessage('Please enter a valid email'),
-    body('bio').optional(),
-    body('avatar').optional()
+    body("name").optional(),
+    body("email")
+      .optional()
+      .isEmail()
+      .withMessage("Please enter a valid email"),
+    body("bio").optional(),
+    body("avatar").optional(),
+    body("location").optional(),
+    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
   ],
   // @ts-ignore - Type issues with Express 5
   userController.updateProfile
 );
 
+// ADMIN ROUTES - Must come before parameterized routes
+/**
+ * @swagger
+ * /api/users/admin/all:
+ *   get:
+ *     summary: Get all users (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+// Get all users (admin only)
+// @ts-ignore - Type issues with Express 5
+router.get("/admin/all", authenticate, isAdmin, userController.getAllUsers);
+
+/**
+ * @swagger
+ * /api/users/admin/{id}:
+ *   put:
+ *     summary: Update any user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *     responses:
+ *       200:
+ *         description: User updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ *       404:
+ *         description: User not found
+ */
+// Update any user (admin only)
+router.put(
+  "/admin/:id",
+  authenticate as any,
+  isAdmin as any,
+  [
+    body("name").optional(),
+    body("email")
+      .optional()
+      .isEmail()
+      .withMessage("Please enter a valid email"),
+    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
+  ],
+  // @ts-ignore - Type issues with Express 5
+  userController.updateUserByAdmin
+);
+
+/**
+ * @swagger
+ * /api/users/admin/{id}:
+ *   delete:
+ *     summary: Delete a user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ *       404:
+ *         description: User not found
+ */
+// Delete a user (admin only)
+// @ts-ignore - Type issues with Express 5
+router.delete("/admin/:id", authenticate, isAdmin, userController.deleteUser);
+
+// PARAMETERIZED ROUTES - Must come after specific routes
 /**
  * @swagger
  * /api/users/{id}:
@@ -285,7 +425,7 @@ router.put(
  */
 // Get user by ID
 // @ts-ignore - Type issues with Express 5
-router.get('/:id', userController.getUserById);
+router.get("/:id", userController.getUserById);
 
 /**
  * @swagger
@@ -314,7 +454,7 @@ router.get('/:id', userController.getUserById);
  */
 // Get user ratings
 // @ts-ignore - Type issues with Express 5
-router.get('/:id/ratings', userController.getUserRatings);
+router.get("/:id/ratings", userController.getUserRatings);
 
 /**
  * @swagger
@@ -364,14 +504,16 @@ router.get('/:id/ratings', userController.getUserRatings);
  */
 // Rate a user
 router.post(
-  '/:id/rate',
+  "/:id/rate",
   authenticate as any,
   [
-    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
-    body('comment').optional()
+    body("rating")
+      .isInt({ min: 1, max: 5 })
+      .withMessage("Rating must be between 1 and 5"),
+    body("comment").optional(),
   ],
   // @ts-ignore - Type issues with Express 5
   userController.rateUser
 );
 
-export default router; 
+export default router;
