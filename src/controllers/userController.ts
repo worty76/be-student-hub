@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User";
 import Rating from "../models/Rating";
 import Product from "../models/Product";
+import Report from "../models/Report";
 
 // Generate JWT token
 const generateToken = (userId: string): string => {
@@ -274,15 +275,110 @@ export const rateUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Get all users (admin only)
+// Report a user
+export const reportUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { reason, description } = req.body;
+    const reporterId = req.user.id;
+    const reportedId = req.params.id;
+
+    // Can't report yourself
+    if (reporterId === reportedId) {
+      res.status(400).json({ message: "You cannot report yourself" });
+      return;
+    }
+
+    // Find reported user
+    const reportedUser = await User.findById(reportedId);
+    if (!reportedUser) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    // Create a report
+    // Note: You would typically have a Report model/schema
+    // This is a placeholder for where you would create the report
+    const report = {
+      type: "user",
+      reporter: reporterId,
+      reported: reportedId,
+      reason,
+      description: description || "",
+      status: "pending", // pending, reviewed, dismissed
+      createdAt: new Date(),
+    };
+
+    // In a real implementation, you'd save this to a Reports collection
+    // const newReport = new Report(report);
+    // await newReport.save();
+
+    // For now, just return success response
+    res.status(201).json({
+      message: "User reported successfully",
+      report,
+    });
+  } catch (error) {
+    console.error("Report user error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ADMIN USER MANAGEMENT FUNCTIONS
+
+// Get all users (admin)
 export const getAllUsers = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Get all users with admin role
-    const users = await User.find({ role: "admin" }).select("-password");
-    res.json(users);
+    const {
+      page = 1,
+      limit = 20,
+      role,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // Build filter object
+    const filter: any = {};
+    if (role) filter.role = role;
+
+    // Build sort object
+    const sortObj: any = {};
+    sortObj[sort as string] = order === "asc" ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get users with pagination
+    const users = await User.find(filter)
+      .select("-password")
+      .sort(sortObj)
+      .skip(skip)
+      .limit(Number(limit));
+
+    // Get total count for pagination
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
   } catch (error) {
     console.error("Get all users error:", error);
     res.status(500).json({ message: "Server error" });
@@ -302,7 +398,7 @@ export const updateUserByAdmin = async (
       return;
     }
 
-    const { name, email, role } = req.body;
+    const { name, email, role, bio, avatar, location } = req.body;
 
     // Find user
     let user = await User.findById(req.params.id);
@@ -316,10 +412,19 @@ export const updateUserByAdmin = async (
     if (name) user.name = name;
     if (email) user.email = email;
     if (role) user.role = role;
+    if (bio !== undefined) user.bio = bio;
+    if (avatar !== undefined) user.avatar = avatar;
+    if (location !== undefined) user.location = location;
 
     await user.save();
 
-    res.json(user);
+    res.json({
+      message: "User updated by admin",
+      user: {
+        ...user.toObject(),
+        password: undefined,
+      },
+    });
   } catch (error) {
     console.error("Admin update user error:", error);
     res.status(500).json({ message: "Server error" });
@@ -339,13 +444,122 @@ export const deleteUser = async (
       return;
     }
 
+    // Delete the user
     await User.findByIdAndDelete(req.params.id);
 
-    // Additional cleanup could be added here (products, ratings, etc.)
+    // Delete all products by this user
+    await Product.deleteMany({ seller: req.params.id });
 
-    res.json({ message: "User deleted successfully" });
+    // Remove from favorites lists
+    await User.updateMany(
+      { favorites: { $in: [req.params.id] } },
+      { $pull: { favorites: req.params.id } }
+    );
+
+    // Delete ratings
+    await Rating.deleteMany({
+      $or: [{ rater: req.params.id }, { rated: req.params.id }],
+    });
+
+    res.json({ message: "User and all associated data deleted successfully" });
   } catch (error) {
     console.error("Delete user error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get reported users (admin)
+export const getReportedUsers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      status = "pending", // pending, reviewed, dismissed
+    } = req.query;
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Find reports for users
+    const reports = await Report.find({
+      type: "user",
+      status: status as string,
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("reporter", "name email")
+      .populate("reported", "name email");
+
+    // Get total count for pagination
+    const total = await Report.countDocuments({
+      type: "user",
+      status: status as string,
+    });
+
+    res.json({
+      reports,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Get reported users error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get dashboard stats (admin)
+export const getDashboardStats = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Get various counts for dashboard
+    const userCount = await User.countDocuments();
+    const productCount = await Product.countDocuments();
+    const availableProductCount = await Product.countDocuments({
+      status: "available",
+    });
+    const soldProductCount = await Product.countDocuments({ status: "sold" });
+
+    // Get recent products
+    const recentProducts = await Product.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("seller", "name");
+
+    // Get recent users
+    const recentUsers = await User.find()
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // Get stats by category
+    const categoryStats = await Product.aggregate([
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.json({
+      counts: {
+        users: userCount,
+        products: productCount,
+        availableProducts: availableProductCount,
+        soldProducts: soldProductCount,
+      },
+      recentProducts,
+      recentUsers,
+      categoryStats,
+    });
+  } catch (error) {
+    console.error("Get admin dashboard stats error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

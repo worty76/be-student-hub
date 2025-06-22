@@ -1,95 +1,107 @@
-import { Request, Response } from 'express';
-import { validationResult } from 'express-validator';
-import Product from '../models/Product';
-import User from '../models/User';
-import { cloudinary } from '../config/cloudinary';
-import mongoose from 'mongoose';
+import { Request, Response } from "express";
+import { validationResult } from "express-validator";
+import Product from "../models/Product";
+import User from "../models/User";
+import Report from "../models/Report";
+import { cloudinary } from "../config/cloudinary";
+import mongoose from "mongoose";
 
 // Get all products with filters
-export const getAllProducts = async (req: Request, res: Response): Promise<void> => {
+export const getAllProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { 
-      category, 
-      minPrice, 
-      maxPrice, 
-      condition, 
+    const {
+      category,
+      minPrice,
+      maxPrice,
+      condition,
       status,
-      sort = 'createdAt', 
-      order = 'desc',
+      sort = "createdAt",
+      order = "desc",
       page = 1,
-      limit = 10
+      limit = 10,
     } = req.query;
-    
+
     // Build filter object
     const filter: any = {};
-    
+
     if (category) filter.category = category;
     if (condition) filter.condition = condition;
     if (status) filter.status = status;
-    
+
     // Price range
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-    
+
     // Build sort object
     const sortObj: any = {};
-    sortObj[sort as string] = order === 'asc' ? 1 : -1;
-    
+    sortObj[sort as string] = order === "asc" ? 1 : -1;
+
     // Calculate pagination
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     // Execute query
     const products = await Product.find(filter)
       .sort(sortObj)
       .skip(skip)
       .limit(Number(limit))
-      .populate('seller', 'name avatar rating');
-    
+      .populate("seller", "name avatar rating");
+
     // Get total count for pagination
     const total = await Product.countDocuments(filter);
-    
+
     res.json({
       products,
       pagination: {
         total,
         page: Number(page),
         limit: Number(limit),
-        pages: Math.ceil(total / Number(limit))
-      }
+        pages: Math.ceil(total / Number(limit)),
+      },
     });
   } catch (error) {
-    console.error('Get products error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get products error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Get product by ID
-export const getProductById = async (req: Request, res: Response): Promise<void> => {
+export const getProductById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const product = await Product.findById(req.params.id)
-      .populate('seller', 'name avatar rating ratingCount location');
-    
+    const product = await Product.findById(req.params.id).populate(
+      "seller",
+      "name avatar rating ratingCount location"
+    );
+
     if (!product) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
-    
+
     // Increment view count
     product.views += 1;
     await product.save();
-    
+
     res.json(product);
   } catch (error) {
-    console.error('Get product error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get product error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Create a new product
-export const createProduct = async (req: Request, res: Response): Promise<void> => {
+export const createProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -99,12 +111,14 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
     }
 
     const { title, description, price, category, condition } = req.body;
-    
+
     // Get file paths if images were uploaded
-    const images = req.files ? (req.files as Express.Multer.File[]).map(
-      (file: any) => file.path || file.location
-    ) : [];
-    
+    const images = req.files
+      ? (req.files as Express.Multer.File[]).map(
+          (file: any) => file.path || file.location
+        )
+      : [];
+
     // Create new product
     const product = new Product({
       title,
@@ -114,20 +128,23 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       category,
       condition,
       seller: req.user.id,
-      location: req.user.location
+      location: req.user.location,
     });
-    
+
     await product.save();
-    
+
     res.status(201).json(product);
   } catch (error) {
-    console.error('Create product error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Create product error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Update a product
-export const updateProduct = async (req: Request, res: Response): Promise<void> => {
+export const updateProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -137,21 +154,23 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     }
 
     const { title, description, price, category, condition, status } = req.body;
-    
+
     // Find product
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
-    
+
     // Check if user owns the product
     if (product.seller.toString() !== req.user.id) {
-      res.status(403).json({ message: 'Not authorized to update this product' });
+      res
+        .status(403)
+        .json({ message: "Not authorized to update this product" });
       return;
     }
-    
+
     // Update fields
     if (title) product.title = title;
     if (description) product.description = description;
@@ -159,7 +178,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (category) product.category = category;
     if (condition) product.condition = condition;
     if (status) product.status = status;
-    
+
     // Add new images if uploaded
     if (req.files && (req.files as Express.Multer.File[]).length > 0) {
       const newImages = (req.files as Express.Multer.File[]).map(
@@ -167,197 +186,523 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       );
       product.images = [...product.images, ...newImages];
     }
-    
+
     await product.save();
-    
+
     res.json(product);
   } catch (error) {
-    console.error('Update product error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Update product error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Delete a product
-export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
+export const deleteProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
-    
+
     // Check if user owns the product
     if (product.seller.toString() !== req.user.id) {
-      res.status(403).json({ message: 'Not authorized to delete this product' });
+      res
+        .status(403)
+        .json({ message: "Not authorized to delete this product" });
       return;
     }
-    
+
     // Delete images from Cloudinary
     for (const imageUrl of product.images) {
-      if (imageUrl.includes('cloudinary')) {
+      if (imageUrl.includes("cloudinary")) {
         // Extract public_id from Cloudinary URL
-        const publicId = imageUrl.split('/').pop()?.split('.')[0];
+        const publicId = imageUrl.split("/").pop()?.split(".")[0];
         if (publicId) {
           await cloudinary.uploader.destroy(`studenthub/${publicId}`);
         }
       }
     }
-    
+
     await product.deleteOne();
-    
-    res.json({ message: 'Product removed' });
+
+    res.json({ message: "Product removed" });
   } catch (error) {
-    console.error('Delete product error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Delete product error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Get products by user ID
-export const getProductsByUser = async (req: Request, res: Response): Promise<void> => {
+export const getProductsByUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const products = await Product.find({ seller: req.params.userId })
-      .sort({ createdAt: -1 });
-    
+    const products = await Product.find({ seller: req.params.userId }).sort({
+      createdAt: -1,
+    });
+
     res.json(products);
   } catch (error) {
-    console.error('Get user products error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get user products error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Search products
-export const searchProducts = async (req: Request, res: Response): Promise<void> => {
+export const searchProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { query } = req.params;
-    
+
     const products = await Product.find(
       { $text: { $search: query } },
-      { score: { $meta: 'textScore' } }
+      { score: { $meta: "textScore" } }
     )
-    .sort({ score: { $meta: 'textScore' } })
-    .populate('seller', 'name avatar');
-    
+      .sort({ score: { $meta: "textScore" } })
+      .populate("seller", "name avatar");
+
     res.json(products);
   } catch (error) {
-    console.error('Search products error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Search products error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Get products by category
-export const getProductsByCategory = async (req: Request, res: Response): Promise<void> => {
+export const getProductsByCategory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { category } = req.params;
-    
+
     const products = await Product.find({ category })
       .sort({ createdAt: -1 })
-      .populate('seller', 'name avatar');
-    
+      .populate("seller", "name avatar");
+
     res.json(products);
   } catch (error) {
-    console.error('Get category products error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get category products error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Add product to favorites
-export const addToFavorites = async (req: Request, res: Response): Promise<void> => {
+export const addToFavorites = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
-    
+
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ message: "User not found" });
       return;
     }
-    
+
     // Check if product is already in favorites
-    if (user.favorites.some(favId => favId.toString() === product._id.toString())) {
-      res.status(400).json({ message: 'Product already in favorites' });
+    if (
+      user.favorites.some(
+        (favId) => favId.toString() === product._id.toString()
+      )
+    ) {
+      res.status(400).json({ message: "Product already in favorites" });
       return;
     }
-    
+
     // Add to favorites
     user.favorites.push(product._id);
     await user.save();
-    
+
     // Increment favorites count
     product.favorites += 1;
     await product.save();
-    
-    res.json({ message: 'Product added to favorites' });
+
+    res.json({ message: "Product added to favorites" });
   } catch (error) {
-    console.error('Add to favorites error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Add to favorites error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Remove product from favorites
-export const removeFromFavorites = async (req: Request, res: Response): Promise<void> => {
+export const removeFromFavorites = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
-    
+
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ message: "User not found" });
       return;
     }
-    
+
     // Check if product is in favorites
-    if (!user.favorites.some(favId => favId.toString() === product._id.toString())) {
-      res.status(400).json({ message: 'Product not in favorites' });
+    if (
+      !user.favorites.some(
+        (favId) => favId.toString() === product._id.toString()
+      )
+    ) {
+      res.status(400).json({ message: "Product not in favorites" });
       return;
     }
-    
+
     // Remove from favorites
     user.favorites = user.favorites.filter(
-      favId => favId.toString() !== product._id.toString()
+      (favId) => favId.toString() !== product._id.toString()
     );
     await user.save();
-    
+
     // Decrement favorites count
     product.favorites = Math.max(0, product.favorites - 1);
     await product.save();
-    
-    res.json({ message: 'Product removed from favorites' });
+
+    res.json({ message: "Product removed from favorites" });
   } catch (error) {
-    console.error('Remove from favorites error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Remove from favorites error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // Get user's favorite products
-export const getFavoriteProducts = async (req: Request, res: Response): Promise<void> => {
+export const getFavoriteProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const user = await User.findById(req.user.id).populate({
-      path: 'favorites',
+      path: "favorites",
       populate: {
-        path: 'seller',
-        select: 'name avatar'
-      }
+        path: "seller",
+        select: "name avatar",
+      },
     });
-    
+
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ message: "User not found" });
       return;
     }
-    
+
     res.json(user.favorites);
   } catch (error) {
-    console.error('Get favorites error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get favorites error:", error);
+    res.status(500).json({ message: "Server error" });
   }
-}; 
+};
+
+// Buy a product
+export const buyProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { paymentMethod, shippingAddress } = req.body;
+    const buyerId = req.user.id;
+
+    // Find product
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // Check if product is available
+    if (product.status !== "available") {
+      res
+        .status(400)
+        .json({ message: "Product is not available for purchase" });
+      return;
+    }
+
+    // Check if user is trying to buy their own product
+    if (product.seller.toString() === buyerId) {
+      res.status(400).json({ message: "You cannot buy your own product" });
+      return;
+    }
+
+    // Update product status to sold
+    product.status = "sold";
+    await product.save();
+
+    // TODO: Create an order/transaction record in the database
+    // This would typically involve creating a new record in an Orders collection
+    // with details about the buyer, seller, product, payment method, etc.
+
+    // For now, just send back a success response
+    res.json({
+      message: "Product purchased successfully",
+      product: product,
+      transaction: {
+        buyer: buyerId,
+        seller: product.seller,
+        product: product._id,
+        amount: product.price,
+        paymentMethod,
+        shippingAddress: shippingAddress || "Not provided",
+        date: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error("Buy product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Report a product
+export const reportProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { reason, description } = req.body;
+    const reporterId = req.user.id;
+
+    // Find product
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    } // Check if user is reporting their own product
+    if (product.seller.toString() === reporterId) {
+      res.status(400).json({ message: "You cannot report your own product" });
+      return;
+    }
+
+    // Create a report
+    const newReport = new Report({
+      type: "product",
+      product: product._id,
+      reporter: reporterId,
+      reported: product.seller,
+      reason,
+      description: description || "",
+      status: "pending",
+    });
+
+    await newReport.save();
+
+    res.status(201).json({
+      message: "Product reported successfully",
+      report: newReport,
+    });
+  } catch (error) {
+    console.error("Report product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ADMIN PRODUCT FUNCTIONS
+
+// Get all products (admin)
+export const getAllProductsAdmin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      category,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // Build filter object
+    const filter: any = {};
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+
+    // Build sort object
+    const sortObj: any = {};
+    sortObj[sort as string] = order === "asc" ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get products with seller info
+    const products = await Product.find(filter)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("seller", "name email");
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(filter);
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Admin get all products error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Admin update product
+export const updateProductAdmin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { title, description, price, category, condition, status } = req.body;
+
+    // Find product
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // Update fields
+    if (title) product.title = title;
+    if (description) product.description = description;
+    if (price) product.price = price;
+    if (category) product.category = category;
+    if (condition) product.condition = condition;
+    if (status) product.status = status;
+
+    await product.save();
+
+    res.json({
+      message: "Product updated by admin",
+      product,
+    });
+  } catch (error) {
+    console.error("Admin update product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Admin delete product
+export const deleteProductAdmin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // Delete images from Cloudinary
+    for (const imageUrl of product.images) {
+      if (imageUrl.includes("cloudinary")) {
+        const publicId = imageUrl.split("/").pop()?.split(".")[0];
+        if (publicId) {
+          await cloudinary.uploader.destroy(`studenthub/${publicId}`);
+        }
+      }
+    }
+
+    await product.deleteOne();
+
+    res.json({ message: "Product removed by admin" });
+  } catch (error) {
+    console.error("Admin delete product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get reported products (admin)
+export const getReportedProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      status = "pending", // pending, reviewed, dismissed
+    } = req.query;
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Find reports for products
+    const reports = await Report.find({
+      type: "product",
+      status: status as string,
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("product")
+      .populate("reporter", "name email")
+      .populate("reported", "name email");
+
+    // Get total count for pagination
+    const total = await Report.countDocuments({
+      type: "product",
+      status: status as string,
+    });
+
+    res.json({
+      reports,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Get reported products error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

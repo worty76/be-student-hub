@@ -305,7 +305,12 @@ router.put(
  */
 // Get all users (admin only)
 // @ts-ignore - Type issues with Express 5
-router.get("/admin/all", authenticate, isAdmin, userController.getAllUsers);
+router.get(
+  "/admin/all",
+  authenticate as any,
+  isAdmin as any,
+  userController.getAllUsers
+);
 
 /**
  * @swagger
@@ -397,7 +402,12 @@ router.put(
  */
 // Delete a user (admin only)
 // @ts-ignore - Type issues with Express 5
-router.delete("/admin/:id", authenticate, isAdmin, userController.deleteUser);
+router.delete(
+  "/admin/:id",
+  authenticate as any,
+  isAdmin as any,
+  userController.deleteUser
+);
 
 // PARAMETERIZED ROUTES - Must come after specific routes
 /**
@@ -514,6 +524,125 @@ router.post(
   ],
   // @ts-ignore - Type issues with Express 5
   userController.rateUser
+);
+
+/**
+ * @swagger
+ * /api/users/{id}/report:
+ *   post:
+ *     summary: Report a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: User ID to report
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 enum: [inappropriate, fake, scam, harassment, other]
+ *                 description: Reason for reporting
+ *               description:
+ *                 type: string
+ *                 description: Additional details about the report
+ *     responses:
+ *       201:
+ *         description: User reported successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.post(
+  "/:id/report",
+  authenticate as any,
+  [
+    body("reason")
+      .isIn(["inappropriate", "fake", "scam", "harassment", "other"])
+      .withMessage("Valid reason is required"),
+    body("description").optional(),
+  ],
+  // @ts-ignore - Type issues with Express 5
+  userController.reportUser
+);
+
+/**
+ * @swagger
+ * /api/users/admin/dashboard:
+ *   get:
+ *     summary: Get dashboard statistics (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+// @ts-ignore - Type issues with Express 5
+router.get(
+  "/admin/dashboard",
+  authenticate as any,
+  isAdmin as any,
+  userController.getDashboardStats
+);
+
+/**
+ * @swagger
+ * /api/users/admin/reports:
+ *   get:
+ *     summary: Get reported users (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, reviewed, dismissed]
+ *         description: Report status
+ *     responses:
+ *       200:
+ *         description: List of reported users
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+// @ts-ignore - Type issues with Express 5
+router.get(
+  "/admin/reports",
+  authenticate as any,
+  isAdmin as any,
+  userController.getReportedUsers
 );
 
 export default router;
