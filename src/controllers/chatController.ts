@@ -176,14 +176,14 @@ export const sendMessage = async (req: Request, res: Response) => {
       p => p.toString() !== senderId
     );
     
-    const unreadCount = { ...chat.unreadCount } as any;
+    // Properly handle the Map type for unreadCount
     otherParticipants.forEach(participant => {
       const participantId = participant.toString();
-      unreadCount[participantId] = (unreadCount[participantId] || 0) + 1;
+      const currentCount = chat.unreadCount.get(participantId) || 0;
+      chat.unreadCount.set(participantId, currentCount + 1);
     });
     
     chat.lastMessage = message._id;
-    chat.unreadCount = unreadCount;
     await chat.save();
     
     // Populate the message
@@ -245,11 +245,8 @@ export const markChatAsRead = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized to access this chat' });
     }
     
-    // Reset unread count for the user
-    const unreadCount = { ...chat.unreadCount } as any;
-    unreadCount[userId] = 0;
-    
-    chat.unreadCount = unreadCount;
+    // Reset unread count for the user using Map.set method
+    chat.unreadCount.set(userId, 0);
     await chat.save();
     
     res.json({ message: 'Chat marked as read' });
