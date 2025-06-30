@@ -66,27 +66,90 @@ const io = new Server(httpServer, {
   },
 });
 
-// Socket.io connection
+// Make io instance available to controllers
+app.set('io', io);
+
+// Socket.io connection with authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error'));
+  }
+  
+  // You can add JWT verification here if needed
+  // For now, just store the token in socket data
+  socket.data.token = token;
+  next();
+});
+
 io.on("connection", (socket) => {
-  console.log("New client connected");
+  console.log("New client connected:", socket.id);
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
+  // Handle user joining their personal rooms
+  socket.on("joinUserRooms", async (data) => {
+    try {
+      const { userId, chatIds } = data;
+      
+      // Join user-specific room for notifications
+      socket.join(`user:${userId}`);
+      
+      // Join all chat rooms the user is part of
+      if (chatIds && Array.isArray(chatIds)) {
+        chatIds.forEach(chatId => {
+          socket.join(chatId);
+          console.log(`User ${userId} joined chat room: ${chatId}`);
+        });
+      }
+      
+      socket.emit('roomsJoined', { success: true });
+    } catch (error) {
+      console.error('Error joining rooms:', error);
+      socket.emit('error', { message: 'Failed to join rooms' });
+    }
   });
 
-  // Handle chat messages
-  socket.on("joinRoom", (roomId) => {
-    socket.join(roomId);
-    console.log(`User joined room: ${roomId}`);
+  // Handle joining a specific chat room
+  socket.on("joinRoom", (chatId) => {
+    socket.join(chatId);
+    console.log(`Socket ${socket.id} joined room: ${chatId}`);
+    socket.emit('roomJoined', { chatId });
   });
 
-  socket.on("leaveRoom", (roomId) => {
-    socket.leave(roomId);
-    console.log(`User left room: ${roomId}`);
+  // Handle leaving a specific chat room
+  socket.on("leaveRoom", (chatId) => {
+    socket.leave(chatId);
+    console.log(`Socket ${socket.id} left room: ${chatId}`);
+    socket.emit('roomLeft', { chatId });
   });
 
-  socket.on("sendMessage", (data) => {
-    io.to(data.roomId).emit("newMessage", data);
+  // Handle typing indicators
+  socket.on("typing", (data) => {
+    const { chatId, userId, isTyping } = data;
+    socket.to(chatId).emit("userTyping", {
+      chatId,
+      userId,
+      isTyping
+    });
+  });
+
+  // Handle user status updates
+  socket.on("updateStatus", (data) => {
+    const { userId, status } = data;
+    // Broadcast to all rooms this user is in
+    socket.broadcast.emit("userStatusChanged", {
+      userId,
+      status,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log(`Client disconnected: ${socket.id}, reason: ${reason}`);
+  });
+
+  // Handle errors
+  socket.on("error", (error) => {
+    console.error("Socket error:", error);
   });
 });
 
