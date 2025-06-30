@@ -190,6 +190,23 @@ export const sendMessage = async (req: Request, res: Response) => {
     const populatedMessage = await Message.findById(message._id)
       .populate('sender', 'name avatar');
     
+    // Emit real-time message to all participants in the chat room
+    const io = req.app.get('io');
+    if (io) {
+      // Emit to the chat room
+      io.to(chatId).emit('newMessage', {
+        message: populatedMessage,
+        chatId: chatId
+      });
+      
+      // Also emit chat update for unread counts
+      io.to(chatId).emit('chatUpdated', {
+        chatId: chatId,
+        lastMessage: populatedMessage,
+        unreadCount: Object.fromEntries(chat.unreadCount)
+      });
+    }
+    
     res.status(201).json(populatedMessage);
   } catch (error) {
     console.error('Send message error:', error);
@@ -248,6 +265,16 @@ export const markChatAsRead = async (req: Request, res: Response) => {
     // Reset unread count for the user using Map.set method
     chat.unreadCount.set(userId, 0);
     await chat.save();
+    
+    // Emit read status update to other participants
+    const io = req.app.get('io');
+    if (io) {
+      io.to(chatId).emit('chatRead', {
+        chatId: chatId,
+        userId: userId,
+        unreadCount: Object.fromEntries(chat.unreadCount)
+      });
+    }
     
     res.json({ message: 'Chat marked as read' });
   } catch (error) {
