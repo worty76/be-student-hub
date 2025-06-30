@@ -5,9 +5,7 @@ export interface IChat extends Document {
   participants: mongoose.Types.ObjectId[];
   product?: mongoose.Types.ObjectId;
   lastMessage?: mongoose.Types.ObjectId;
-  unreadCount: {
-    [key: string]: number;
-  };
+  unreadCount: Map<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
