@@ -44,7 +44,7 @@ const ProductSchema = new Schema<IProduct>(
     condition: {
       type: String,
       required: true,
-      enum: ['new', 'like new', 'good', 'fair', 'poor']
+      enum: ['new', 'like-new', 'good', 'fair', 'poor']
     },
     status: {
       type: String,
