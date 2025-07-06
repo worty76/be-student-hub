@@ -27,9 +27,17 @@ export const getAllProducts = async (
     // Build filter object
     const filter: any = {};
 
+    // For regular users (non-admin), only show approved products
+    // Admin can see all products by explicitly setting status filter
+    if (!req.user || req.user.role !== "admin") {
+      filter.status = "available"; // Only show approved products to regular users
+    } else {
+      // For admin, apply status filter if provided
+      if (status) filter.status = status;
+    }
+
     if (category) filter.category = category;
     if (condition) filter.condition = condition;
-    if (status) filter.status = status;
 
     // Price range
     if (minPrice || maxPrice) {
@@ -119,7 +127,7 @@ export const createProduct = async (
         )
       : [];
 
-    // Create new product
+    // Create new product with pending status - requires admin approval
     const product = new Product({
       title,
       description,
@@ -127,13 +135,17 @@ export const createProduct = async (
       images,
       category,
       condition,
+      status: 'pending', // Default to pending for admin approval
       seller: req.user.id,
       location: req.user.location,
     });
 
     await product.save();
 
-    res.status(201).json(product);
+    res.status(201).json({
+      ...product.toObject(),
+      message: "Sản phẩm đã được tạo và đang chờ duyệt từ admin"
+    });
   } catch (error) {
     console.error("Create product error:", error);
     res.status(500).json({ message: "Server error" });
@@ -703,6 +715,124 @@ export const getReportedProducts = async (
     });
   } catch (error) {
     console.error("Get reported products error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Approve a product (admin)
+export const approveProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const productId = req.params.id;
+
+    // Find product
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // Check if product is pending
+    if (product.status !== "pending") {
+      res.status(400).json({ message: "Product is not pending approval" });
+      return;
+    }
+
+    // Approve product
+    product.status = "available";
+    await product.save();
+
+    res.json({
+      message: "Product approved successfully",
+      product,
+    });
+  } catch (error) {
+    console.error("Approve product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Reject a product (admin)
+export const rejectProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const productId = req.params.id;
+    const { reason } = req.body;
+
+    // Find product
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // Check if product is pending
+    if (product.status !== "pending") {
+      res.status(400).json({ message: "Product is not pending approval" });
+      return;
+    }
+
+    // For now, we'll delete rejected products
+    // In a real system, you might want to store rejection reasons
+    await product.deleteOne();
+
+    res.json({
+      message: "Product rejected and removed",
+      reason: reason || "No reason provided",
+    });
+  } catch (error) {
+    console.error("Reject product error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get pending products (admin)
+export const getPendingProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // Build sort object
+    const sortObj: any = {};
+    sortObj[sort as string] = order === "asc" ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get pending products with seller info
+    const products = await Product.find({ status: "pending" })
+      .sort(sortObj)
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("seller", "name email");
+
+    // Get total count for pagination
+    const total = await Product.countDocuments({ status: "pending" });
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Get pending products error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

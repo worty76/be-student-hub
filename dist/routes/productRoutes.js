@@ -1,11 +1,47 @@
-import express from "express";
-import { body } from "express-validator";
-import * as productController from "../controllers/productController";
-import { authenticate, isAdmin } from "../middleware/auth";
-import { cloudinaryUpload } from "../config/cloudinary";
-
-const router = express.Router();
-
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const express_validator_1 = require("express-validator");
+const productController = __importStar(require("../controllers/productController"));
+const auth_1 = require("../middleware/auth");
+const cloudinary_1 = require("../config/cloudinary");
+const router = express_1.default.Router();
 /**
  * @swagger
  * components:
@@ -70,14 +106,12 @@ const router = express.Router();
  *           format: date-time
  *           description: Last update timestamp
  */
-
 /**
  * @swagger
  * tags:
  *   name: Products
  *   description: Product management API
  */
-
 /**
  * @swagger
  * /api/products:
@@ -156,7 +190,6 @@ const router = express.Router();
  *                       type: integer
  */
 router.get("/", productController.getAllProducts);
-
 /**
  * @swagger
  * /api/products/favorites:
@@ -180,8 +213,7 @@ router.get("/", productController.getAllProducts);
  *         description: User not found
  */
 // @ts-ignore - Type issues with Express 5
-router.get("/favorites", authenticate, productController.getFavoriteProducts);
-
+router.get("/favorites", auth_1.authenticate, productController.getFavoriteProducts);
 /**
  * @swagger
  * /api/products/user/{userId}:
@@ -207,7 +239,6 @@ router.get("/favorites", authenticate, productController.getFavoriteProducts);
  */
 // @ts-ignore - Type issues with Express 5
 router.get("/user/:userId", productController.getProductsByUser);
-
 /**
  * @swagger
  * /api/products/search/{query}:
@@ -233,7 +264,6 @@ router.get("/user/:userId", productController.getProductsByUser);
  */
 // @ts-ignore - Type issues with Express 5
 router.get("/search/:query", productController.searchProducts);
-
 /**
  * @swagger
  * /api/products/category/{category}:
@@ -259,7 +289,6 @@ router.get("/search/:query", productController.searchProducts);
  */
 // @ts-ignore - Type issues with Express 5
 router.get("/category/:category", productController.getProductsByCategory);
-
 /**
  * @swagger
  * /api/products/{id}:
@@ -285,7 +314,6 @@ router.get("/category/:category", productController.getProductsByCategory);
  */
 // @ts-ignore - Type issues with Express 5
 router.get("/:id", productController.getProductById);
-
 /**
  * @swagger
  * /api/products:
@@ -335,20 +363,13 @@ router.get("/:id", productController.getProductById);
  *         description: Unauthorized
  */
 // @ts-ignore - Type issues with Express 5
-router.post(
-  "/",
-  authenticate as any,
-  cloudinaryUpload.array("images", 5),
-  [
-    body("title").notEmpty().withMessage("Title is required"),
-    body("description").notEmpty().withMessage("Description is required"),
-    body("price").isNumeric().withMessage("Price must be a number"),
-    body("category").notEmpty().withMessage("Category is required"),
-    body("condition").notEmpty().withMessage("Condition is required"),
-  ],
-  productController.createProduct
-);
-
+router.post("/", auth_1.authenticate, cloudinary_1.cloudinaryUpload.array("images", 5), [
+    (0, express_validator_1.body)("title").notEmpty().withMessage("Title is required"),
+    (0, express_validator_1.body)("description").notEmpty().withMessage("Description is required"),
+    (0, express_validator_1.body)("price").isNumeric().withMessage("Price must be a number"),
+    (0, express_validator_1.body)("category").notEmpty().withMessage("Category is required"),
+    (0, express_validator_1.body)("condition").notEmpty().withMessage("Condition is required"),
+], productController.createProduct);
 /**
  * @swagger
  * /api/products/{id}:
@@ -404,21 +425,14 @@ router.post(
  *         description: Product not found
  */
 // @ts-ignore - Type issues with Express 5
-router.put(
-  "/:id",
-  authenticate as any,
-  cloudinaryUpload.array("images", 5),
-  [
-    body("title").optional(),
-    body("description").optional(),
-    body("price").optional().isNumeric().withMessage("Price must be a number"),
-    body("category").optional(),
-    body("condition").optional(),
-    body("status").optional(),
-  ],
-  productController.updateProduct
-);
-
+router.put("/:id", auth_1.authenticate, cloudinary_1.cloudinaryUpload.array("images", 5), [
+    (0, express_validator_1.body)("title").optional(),
+    (0, express_validator_1.body)("description").optional(),
+    (0, express_validator_1.body)("price").optional().isNumeric().withMessage("Price must be a number"),
+    (0, express_validator_1.body)("category").optional(),
+    (0, express_validator_1.body)("condition").optional(),
+    (0, express_validator_1.body)("status").optional(),
+], productController.updateProduct);
 /**
  * @swagger
  * /api/products/{id}:
@@ -445,8 +459,7 @@ router.put(
  *         description: Product not found
  */
 // @ts-ignore - Type issues with Express 5
-router.delete("/:id", authenticate, productController.deleteProduct);
-
+router.delete("/:id", auth_1.authenticate, productController.deleteProduct);
 /**
  * @swagger
  * /api/products/{id}/favorite:
@@ -473,8 +486,7 @@ router.delete("/:id", authenticate, productController.deleteProduct);
  *         description: Product not found
  */
 // @ts-ignore - Type issues with Express 5
-router.post("/:id/favorite", authenticate, productController.addToFavorites);
-
+router.post("/:id/favorite", auth_1.authenticate, productController.addToFavorites);
 /**
  * @swagger
  * /api/products/{id}/favorite:
@@ -501,12 +513,7 @@ router.post("/:id/favorite", authenticate, productController.addToFavorites);
  *         description: Product not found
  */
 // @ts-ignore - Type issues with Express 5
-router.delete(
-  "/:id/favorite",
-  authenticate as any,
-  productController.removeFromFavorites
-);
-
+router.delete("/:id/favorite", auth_1.authenticate, productController.removeFromFavorites);
 /**
  * @swagger
  * /api/products/{id}/buy:
@@ -548,18 +555,12 @@ router.delete(
  *       404:
  *         description: Product not found
  */
-router.post(
-  "/:id/buy",
-  authenticate as any,
-  [
-    body("paymentMethod")
-      .isIn(["cash", "transfer", "other"])
-      .withMessage("Valid payment method is required"),
-    body("shippingAddress").optional(),
-  ],
-  productController.buyProduct
-);
-
+router.post("/:id/buy", auth_1.authenticate, [
+    (0, express_validator_1.body)("paymentMethod")
+        .isIn(["cash", "transfer", "other"])
+        .withMessage("Valid payment method is required"),
+    (0, express_validator_1.body)("shippingAddress").optional(),
+], productController.buyProduct);
 /**
  * @swagger
  * /api/products/{id}/report:
@@ -602,18 +603,12 @@ router.post(
  *         description: Product not found
  */
 // @ts-ignore - Type issues with Express 5
-router.post(
-  "/:id/report",
-  authenticate as any,
-  [
-    body("reason")
-      .isIn(["inappropriate", "fake", "spam", "other"])
-      .withMessage("Valid reason is required"),
-    body("description").optional(),
-  ],
-  productController.reportProduct
-);
-
+router.post("/:id/report", auth_1.authenticate, [
+    (0, express_validator_1.body)("reason")
+        .isIn(["inappropriate", "fake", "spam", "other"])
+        .withMessage("Valid reason is required"),
+    (0, express_validator_1.body)("description").optional(),
+], productController.reportProduct);
 /**
  * @swagger
  * /api/products/admin/all:
@@ -662,13 +657,7 @@ router.post(
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get(
-  "/admin/all",
-  authenticate as any,
-  isAdmin as any,
-  productController.getAllProductsAdmin
-);
-
+router.get("/admin/all", auth_1.authenticate, auth_1.isAdmin, productController.getAllProductsAdmin);
 /**
  * @swagger
  * /api/products/admin/{id}:
@@ -714,21 +703,14 @@ router.get(
  *       404:
  *         description: Product not found
  */
-router.put(
-  "/admin/:id",
-  authenticate as any,
-  isAdmin as any,
-  [
-    body("title").optional(),
-    body("description").optional(),
-    body("price").optional().isNumeric().withMessage("Price must be a number"),
-    body("category").optional(),
-    body("condition").optional(),
-    body("status").optional(),
-  ],
-  productController.updateProductAdmin
-);
-
+router.put("/admin/:id", auth_1.authenticate, auth_1.isAdmin, [
+    (0, express_validator_1.body)("title").optional(),
+    (0, express_validator_1.body)("description").optional(),
+    (0, express_validator_1.body)("price").optional().isNumeric().withMessage("Price must be a number"),
+    (0, express_validator_1.body)("category").optional(),
+    (0, express_validator_1.body)("condition").optional(),
+    (0, express_validator_1.body)("status").optional(),
+], productController.updateProductAdmin);
 /**
  * @swagger
  * /api/products/admin/{id}:
@@ -754,13 +736,7 @@ router.put(
  *       404:
  *         description: Product not found
  */
-router.delete(
-  "/admin/:id",
-  authenticate as any,
-  isAdmin as any,
-  productController.deleteProductAdmin
-);
-
+router.delete("/admin/:id", auth_1.authenticate, auth_1.isAdmin, productController.deleteProductAdmin);
 /**
  * @swagger
  * /api/products/admin/reports:
@@ -794,13 +770,7 @@ router.delete(
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get(
-  "/admin/reports",
-  authenticate as any,
-  isAdmin as any,
-  productController.getReportedProducts
-);
-
+router.get("/admin/reports", auth_1.authenticate, auth_1.isAdmin, productController.getReportedProducts);
 /**
  * @swagger
  * /api/products/admin/pending:
@@ -839,13 +809,7 @@ router.get(
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get(
-  "/admin/pending",
-  authenticate as any,
-  isAdmin as any,
-  productController.getPendingProducts
-);
-
+router.get("/admin/pending", auth_1.authenticate, auth_1.isAdmin, productController.getPendingProducts);
 /**
  * @swagger
  * /api/products/admin/{id}/approve:
@@ -873,13 +837,7 @@ router.get(
  *       404:
  *         description: Product not found
  */
-router.put(
-  "/admin/:id/approve",
-  authenticate as any,
-  isAdmin as any,
-  productController.approveProduct
-);
-
+router.put("/admin/:id/approve", auth_1.authenticate, auth_1.isAdmin, productController.approveProduct);
 /**
  * @swagger
  * /api/products/admin/{id}/reject:
@@ -916,11 +874,5 @@ router.put(
  *       404:
  *         description: Product not found
  */
-router.put(
-  "/admin/:id/reject",
-  authenticate as any,
-  isAdmin as any,
-  productController.rejectProduct
-);
-
-export default router;
+router.put("/admin/:id/reject", auth_1.authenticate, auth_1.isAdmin, productController.rejectProduct);
+exports.default = router;

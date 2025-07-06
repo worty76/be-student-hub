@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import { validationResult } from "express-validator";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/User";
 import Rating from "../models/Rating";
 import Product from "../models/Product";
 import Report from "../models/Report";
+import { emailService } from "../services/emailService";
 
 // Generate JWT token
 const generateToken = (userId: string): string => {
@@ -43,6 +45,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     // Generate token
     const token = generateToken(user._id.toString());
+
+    // Send welcome email (don't wait for it to complete)
+    emailService.sendWelcomeEmail(user).catch((error) => {
+      console.error("Failed to send welcome email:", error);
+    });
 
     res.status(201).json({
       token,
@@ -561,5 +568,130 @@ export const getDashboardStats = async (
   } catch (error) {
     console.error("Get admin dashboard stats error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Forget password
+export const forgetPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ message: "User not found with this email" });
+      return;
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    
+    // Set token and expiration (1 hour from now)
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    await user.save();
+
+    // Send password reset email
+    try {
+      await emailService.sendPasswordResetEmail(user, resetToken);
+      
+      res.json({
+        message: "Password reset email sent successfully. Please check your email.",
+        email: user.email,
+      });
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      
+      // Clear the reset token if email fails
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      
+      res.status(500).json({ 
+        message: "Failed to send password reset email. Please try again later." 
+      });
+    }
+  } catch (error) {
+    console.error("Forget password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Reset password
+export const resetPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const { token, newPassword } = req.body;
+
+    // Find user by reset token and check if token is still valid
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: "Invalid or expired reset token" });
+      return;
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Test email endpoint (remove in production)
+export const sendTestEmail = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ message: "Email is required" });
+      return;
+    }
+
+    await emailService.sendTestEmail(email);
+
+    res.json({
+      message: "Test email sent successfully! Check your inbox.",
+      email: email,
+    });
+  } catch (error) {
+    console.error("Test email error:", error);
+    res.status(500).json({ 
+      message: "Failed to send test email",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 };
