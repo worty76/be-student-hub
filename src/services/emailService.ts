@@ -1,20 +1,27 @@
-import FormData from "form-data";
-import Mailgun from "mailgun.js";
+import nodemailer from 'nodemailer';
 import { IUser } from "../models/User";
 
 export class EmailService {
-  private mg: any;
-  private domain: string;
+  private transporter: nodemailer.Transporter;
 
   constructor() {
-    // Initialize Mailgun client
-    const mailgun = new Mailgun(FormData);
-    this.mg = mailgun.client({
-      username: "api",
-      key: process.env.MAILGUN_API_KEY || "",
+    // Initialize Nodemailer transporter for Gmail
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD,
+      },
     });
 
-    this.domain = process.env.MAILGUN_DOMAIN || "";
+    // Verify the connection configuration
+    this.transporter.verify((error, success) => {
+      if (error) {
+        console.error('❌ Email service configuration error:', error);
+      } else {
+        console.log('✅ Email service is ready to send messages');
+      }
+    });
   }
 
   async sendPasswordResetEmail(user: IUser, resetToken: string): Promise<void> {
@@ -22,18 +29,18 @@ export class EmailService {
       process.env.FRONTEND_URL || "http://localhost:3000"
     }/auth/reset-password?token=${resetToken}`;
 
-    const emailData = {
-      from: `Student Hub <postmaster@${this.domain}>`,
-      to: [user.email],
+    const mailOptions = {
+      from: `"Student Hub" <studenthub.vn@gmail.com>`,
+      to: user.email,
       subject: "Đặt lại mật khẩu - Student Hub",
       html: this.generatePasswordResetHTML(user.name, resetURL),
       text: `Xin chào ${user.name}, vui lòng truy cập liên kết sau để đặt lại mật khẩu: ${resetURL}`,
     };
 
     try {
-      const response = await this.mg.messages.create(this.domain, emailData);
+      const info = await this.transporter.sendMail(mailOptions);
       console.log("✅ Password reset email sent successfully to:", user.email);
-      console.log("📧 Message ID:", response.id);
+      console.log("📧 Message ID:", info.messageId);
     } catch (error) {
       console.error("❌ Error sending password reset email:", error);
       throw new Error("Failed to send password reset email");
@@ -41,18 +48,18 @@ export class EmailService {
   }
 
   async sendWelcomeEmail(user: IUser): Promise<void> {
-    const emailData = {
-      from: `Student Hub <postmaster@${this.domain}>`,
-      to: [user.email],
+    const mailOptions = {
+      from: `"Student Hub" <studenthub.vn@gmail.com>`,
+      to: user.email,
       subject: "Chào mừng bạn đến với Student Hub! 🎓",
       html: this.generateWelcomeHTML(user.name),
       text: `Chào mừng ${user.name} đến với Student Hub! Cảm ơn bạn đã đăng ký tài khoản.`,
     };
 
     try {
-      const response = await this.mg.messages.create(this.domain, emailData);
+      const info = await this.transporter.sendMail(mailOptions);
       console.log("✅ Welcome email sent successfully to:", user.email);
-      console.log("📧 Message ID:", response.id);
+      console.log("📧 Message ID:", info.messageId);
     } catch (error) {
       console.error("❌ Error sending welcome email:", error);
       // Don't throw error for welcome emails to avoid registration failure
@@ -60,29 +67,27 @@ export class EmailService {
   }
 
   async sendTestEmail(to: string): Promise<void> {
-    const emailData = {
-      from: `Student Hub Test <postmaster@${this.domain}>`,
-      to: [to],
+    const mailOptions = {
+      from: `"Student Hub Test" <studenthub.vn@gmail.com>`,
+      to: to,
       subject: "Test Email - Student Hub",
       html: `
         <h1>🎉 Email Test Successful!</h1>
-        <p>If you receive this email, your Mailgun configuration is working correctly.</p>
-        <p><strong>Domain:</strong> ${this.domain}</p>
+        <p>If you receive this email, your Nodemailer configuration is working correctly.</p>
+        <p><strong>From:</strong> studenthub.vn@gmail.com</p>
         <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>API Key:</strong> ...${
-          process.env.MAILGUN_API_KEY?.slice(-8) || "not-set"
-        }</p>
+        <p><strong>Service:</strong> Gmail SMTP via Nodemailer</p>
       `,
-      text: `Email test successful! Your Mailgun configuration is working correctly. Domain: ${
-        this.domain
+      text: `Email test successful! Your Nodemailer configuration is working correctly. From: ${
+        "studenthub.vn@gmail.com"
       }, Time: ${new Date().toLocaleString()}`,
     };
 
     try {
-      const response = await this.mg.messages.create(this.domain, emailData);
+      const info = await this.transporter.sendMail(mailOptions);
       console.log("✅ Test email sent successfully to:", to);
-      console.log("📧 Message ID:", response.id);
-      return response;
+      console.log("📧 Message ID:", info.messageId);
+      return info;
     } catch (error) {
       console.error("❌ Error sending test email:", error);
       throw error;

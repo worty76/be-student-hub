@@ -60,7 +60,7 @@ const ProductSchema = new mongoose_1.Schema({
     condition: {
         type: String,
         required: true,
-        enum: ['new', 'like new', 'good', 'fair', 'poor']
+        enum: ['new', 'like-new', 'good', 'fair', 'poor']
     },
     status: {
         type: String,

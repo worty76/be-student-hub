@@ -29,7 +29,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      res.status(400).json({ message: "User already exists with this email" });
+      res.status(400).json({ message: "Người dùng đã tồn tại với email này" });
       return;
     }
 
