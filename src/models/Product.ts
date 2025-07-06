@@ -49,7 +49,7 @@ const ProductSchema = new Schema<IProduct>(
     status: {
       type: String,
       enum: ['available', 'pending', 'sold'],
-      default: 'available'
+      default: 'pending' // Default to pending - requires admin approval
     },
     seller: {
       type: Schema.Types.ObjectId,

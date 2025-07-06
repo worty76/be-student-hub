@@ -13,6 +13,8 @@ export interface IUser extends Document {
   ratingCount: number;
   favorites: mongoose.Types.ObjectId[];
   role: string;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -62,6 +64,12 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ['user', 'admin'],
       default: 'user'
+    },
+    resetPasswordToken: {
+      type: String
+    },
+    resetPasswordExpires: {
+      type: Date
     }
   },
   { timestamps: true }
