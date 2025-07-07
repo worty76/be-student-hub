@@ -923,4 +923,59 @@ router.put(
   productController.rejectProduct
 );
 
+/**
+ * @swagger
+ * /api/products/{id}/purchase:
+ *   post:
+ *     summary: Purchase a product using VNPay
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Product ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankCode:
+ *                 type: string
+ *                 description: Bank code for direct bank payment
+ *               locale:
+ *                 type: string
+ *                 enum: [vn, en]
+ *                 default: vn
+ *                 description: Language for payment page
+ *     responses:
+ *       200:
+ *         description: Payment initiated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 payUrl:
+ *                   type: string
+ *                   description: URL to redirect user for payment
+ *                 orderId:
+ *                   type: string
+ *                   description: Order ID for tracking
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Product not found
+ */
+router.post("/:id/purchase", authenticate as any, productController.purchaseProduct);
+
 export default router;

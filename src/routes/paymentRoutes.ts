@@ -68,6 +68,188 @@ router.post(
 
 /**
  * @swagger
+ * /api/payments/vnpay/create:
+ *   post:
+ *     summary: Create a new VNPay payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to purchase
+ *               bankCode:
+ *                 type: string
+ *                 description: Bank code for direct bank payment
+ *               locale:
+ *                 type: string
+ *                 enum: [vn, en]
+ *                 default: vn
+ *                 description: Language for payment page
+ *     responses:
+ *       200:
+ *         description: Payment initiated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 payUrl:
+ *                   type: string
+ *                   description: URL to redirect user for payment
+ *                 orderId:
+ *                   type: string
+ *                   description: Order ID for tracking
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Product not found
+ */
+router.post(
+  '/vnpay/create',
+  authenticate as any,
+  [
+    body('productId')
+      .notEmpty()
+      .withMessage('Product ID is required')
+  ],
+  paymentController.createVNPayPayment
+);
+
+/**
+ * @swagger
+ * /api/payments/vnpay/return:
+ *   get:
+ *     summary: Handle VNPay payment return
+ *     description: Endpoint for VNPay to return the user after payment completion
+ *     tags: [Payments]
+ *     parameters:
+ *       - in: query
+ *         name: vnp_ResponseCode
+ *         schema:
+ *           type: string
+ *         description: Response code from VNPay
+ *       - in: query
+ *         name: vnp_TxnRef
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     responses:
+ *       302:
+ *         description: Redirects to success or failure page
+ */
+router.get('/vnpay/return', paymentController.handleVNPayReturn);
+
+/**
+ * @swagger
+ * /api/payments/vnpay/ipn:
+ *   get:
+ *     summary: Handle VNPay IPN (Instant Payment Notification)
+ *     description: Endpoint for VNPay to send payment notifications
+ *     tags: [Payments]
+ *     responses:
+ *       200:
+ *         description: IPN processed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 RspCode:
+ *                   type: string
+ *                 Message:
+ *                   type: string
+ */
+router.get('/vnpay/ipn', paymentController.handleVNPayIPN);
+
+/**
+ * @swagger
+ * /api/payments/vnpay/query:
+ *   post:
+ *     summary: Query VNPay transaction status
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - transactionDate
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               transactionDate:
+ *                 type: string
+ *                 format: YYYYMMDDHHmmss
+ *     responses:
+ *       200:
+ *         description: Transaction query result
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/vnpay/query', authenticate as any, paymentController.queryVNPayTransaction);
+
+/**
+ * @swagger
+ * /api/payments/vnpay/refund:
+ *   post:
+ *     summary: Request refund for VNPay transaction
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - transactionDate
+ *               - amount
+ *               - transactionType
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *               transactionDate:
+ *                 type: string
+ *                 format: YYYYMMDDHHmmss
+ *               amount:
+ *                 type: number
+ *               transactionType:
+ *                 type: string
+ *                 enum: [02, 03]
+ *                 description: 02 for partial refund, 03 for full refund
+ *     responses:
+ *       200:
+ *         description: Refund request result
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/vnpay/refund', authenticate as any, paymentController.refundVNPayTransaction);
+
+/**
+ * @swagger
  * /api/payments/{orderId}/status:
  *   get:
  *     summary: Get payment status by order ID
@@ -89,8 +271,7 @@ router.post(
  *       404:
  *         description: Payment not found
  */
-// @ts-ignore - Type issues with Express 5
-router.get('/:orderId/status', authenticate, paymentController.getPaymentStatus);
+router.get('/:orderId/status', authenticate as any, paymentController.getPaymentStatus);
 
 /**
  * @swagger
@@ -107,5 +288,17 @@ router.get('/:orderId/status', authenticate, paymentController.getPaymentStatus)
  *         description: Not authenticated
  */
 router.get('/history', authenticate as any, paymentController.getPaymentHistory);
+
+/**
+ * @swagger
+ * /api/payments/momo/ipn:
+ *   post:
+ *     summary: Handle MoMo IPN (Instant Payment Notification)
+ *     tags: [Payments]
+ *     responses:
+ *       200:
+ *         description: IPN processed
+ */
+router.post('/momo/ipn', paymentController.handleMomoIPN);
 
 export default router; 

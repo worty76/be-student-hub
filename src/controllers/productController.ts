@@ -5,6 +5,9 @@ import User from "../models/User";
 import Report from "../models/Report";
 import { cloudinary } from "../config/cloudinary";
 import mongoose from "mongoose";
+import { vnpayService } from '../services/vnpayService';
+import Payment from '../models/Payment';
+import moment from 'moment';
 
 // Get all products with filters
 export const getAllProducts = async (
@@ -834,5 +837,92 @@ export const getPendingProducts = async (
   } catch (error) {
     console.error("Get pending products error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * Purchase a product using VNPay
+ * @route POST /api/products/:id/purchase
+ * @access Private
+ */
+export const purchaseProduct = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { bankCode, locale } = req.body;
+    const buyerId = req.user.id;
+
+    // Find product
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({ message: 'Sản phẩm không tồn tại' });
+      return;
+    }
+
+    // Check if product is available
+    if (product.status !== 'available') {
+      res.status(400).json({ message: 'Sản phẩm không khả dụng' });
+      return;
+    }
+
+    // Check if user is trying to buy their own product
+    if (product.seller.toString() === buyerId) {
+      res.status(400).json({ message: 'Bạn không thể mua sản phẩm của chính mình' });
+      return;
+    }
+
+    // Generate unique order ID
+    const date = new Date();
+    const orderId = `VNP${moment(date).format('YYMMDDHHmmss')}`;
+    
+    // Get client IP address
+    const ipAddr = req.headers['x-forwarded-for'] || 
+                  req.socket.remoteAddress || 
+                  '127.0.0.1';
+
+    // Create payment in database
+    const payment = new Payment({
+      orderId,
+      requestId: orderId,
+      amount: product.price,
+      productId: product._id,
+      buyerId,
+      sellerId: product.seller,
+      paymentMethod: 'vnpay',
+      paymentStatus: 'pending',
+    });
+    await payment.save();
+
+    // Create VNPay payment URL
+    const returnUrl = `${req.protocol}://${req.get('host')}/api/payments/vnpay/return`;
+    
+    const paymentUrl = vnpayService.createPaymentUrl({
+      amount: product.price,
+      orderId,
+      orderInfo: `Thanh toán cho sản phẩm: ${product.title}`,
+      bankCode: bankCode || undefined,
+      locale: locale || 'vn',
+      ipAddr: typeof ipAddr === 'string' ? ipAddr : ipAddr[0],
+      returnUrl,
+    });
+
+    // Update payment with payUrl
+    payment.payUrl = paymentUrl;
+    await payment.save();
+
+    // Return payment URL
+    res.status(200).json({
+      success: true,
+      payUrl: paymentUrl,
+      orderId,
+      product: {
+        id: product._id,
+        title: product.title,
+        price: product.price,
+        image: product.images && product.images.length > 0 ? product.images[0] : null
+      }
+    });
+  } catch (error: any) {
+    console.error('Product purchase error:', error);
+    res.status(500).json({ message: error.message || 'Lỗi khi mua sản phẩm' });
   }
 };
