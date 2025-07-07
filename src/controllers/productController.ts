@@ -466,15 +466,28 @@ export const buyProduct = async (
       return;
     }
 
-    // Update product status to sold
+    // Create payment record for cash transaction
+    const orderId = `CASH${moment().format('YYMMDDHHmmss')}${Math.floor(Math.random() * 1000)}`;
+    
+    const payment = new Payment({
+      orderId,
+      requestId: orderId,
+      amount: product.price,
+      productId: product._id,
+      buyerId,
+      sellerId: product.seller,
+      paymentMethod,
+      paymentStatus: 'completed', // Cash payments are immediately completed
+      shippingAddress: shippingAddress || "Not provided",
+    });
+
+    await payment.save();
+
+    // Update product status to sold and add buyer
     product.status = "sold";
+    product.buyer = buyerId;
     await product.save();
 
-    // TODO: Create an order/transaction record in the database
-    // This would typically involve creating a new record in an Orders collection
-    // with details about the buyer, seller, product, payment method, etc.
-
-    // For now, just send back a success response
     res.json({
       message: "Product purchased successfully",
       product: product,
@@ -486,6 +499,7 @@ export const buyProduct = async (
         paymentMethod,
         shippingAddress: shippingAddress || "Not provided",
         date: new Date(),
+        orderId: orderId
       },
     });
   } catch (error) {

@@ -369,13 +369,24 @@ const buyProduct = async (req, res) => {
             res.status(400).json({ message: "You cannot buy your own product" });
             return;
         }
-        // Update product status to sold
+        // Create payment record for cash transaction
+        const orderId = `CASH${(0, moment_1.default)().format('YYMMDDHHmmss')}${Math.floor(Math.random() * 1000)}`;
+        const payment = new Payment_1.default({
+            orderId,
+            requestId: orderId,
+            amount: product.price,
+            productId: product._id,
+            buyerId,
+            sellerId: product.seller,
+            paymentMethod,
+            paymentStatus: 'completed', // Cash payments are immediately completed
+            shippingAddress: shippingAddress || "Not provided",
+        });
+        await payment.save();
+        // Update product status to sold and add buyer
         product.status = "sold";
+        product.buyer = buyerId;
         await product.save();
-        // TODO: Create an order/transaction record in the database
-        // This would typically involve creating a new record in an Orders collection
-        // with details about the buyer, seller, product, payment method, etc.
-        // For now, just send back a success response
         res.json({
             message: "Product purchased successfully",
             product: product,
@@ -387,6 +398,7 @@ const buyProduct = async (req, res) => {
                 paymentMethod,
                 shippingAddress: shippingAddress || "Not provided",
                 date: new Date(),
+                orderId: orderId
             },
         });
     }
