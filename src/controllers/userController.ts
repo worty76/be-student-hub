@@ -110,6 +110,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json({ message: "Đăng xuất thành công" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
 // Get user profile
 export const getProfile = async (
   req: Request,

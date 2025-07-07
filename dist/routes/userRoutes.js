@@ -1,10 +1,46 @@
-import express from "express";
-import { body } from "express-validator";
-import * as userController from "../controllers/userController";
-import { authenticate, isAdmin } from "../middleware/auth";
-
-const router = express.Router();
-
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const express_validator_1 = require("express-validator");
+const userController = __importStar(require("../controllers/userController"));
+const auth_1 = require("../middleware/auth");
+const router = express_1.default.Router();
 /**
  * @swagger
  * components:
@@ -84,14 +120,12 @@ const router = express.Router();
  *           format: date-time
  *           description: Rating creation timestamp
  */
-
 /**
  * @swagger
  * tags:
  *   name: Users
  *   description: User management and authentication
  */
-
 /**
  * @swagger
  * /api/users/register:
@@ -137,20 +171,16 @@ const router = express.Router();
  *         description: Invalid input
  */
 // Register new user
-router.post(
-  "/register",
-  [
-    body("email").isEmail().withMessage("Please enter a valid email"),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
-    body("name").notEmpty().withMessage("Name is required"),
-    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.register
-);
-
+router.post("/register", [
+    (0, express_validator_1.body)("email").isEmail().withMessage("Please enter a valid email"),
+    (0, express_validator_1.body)("password")
+        .isLength({ min: 6 })
+        .withMessage("Password must be at least 6 characters long"),
+    (0, express_validator_1.body)("name").notEmpty().withMessage("Name is required"),
+    (0, express_validator_1.body)("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.register);
 /**
  * @swagger
  * /api/users/login:
@@ -188,16 +218,12 @@ router.post(
  *         description: Invalid credentials
  */
 // Login user
-router.post(
-  "/login",
-  [
-    body("email").isEmail().withMessage("Please enter a valid email"),
-    body("password").notEmpty().withMessage("Password is required"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.login
-);
-
+router.post("/login", [
+    (0, express_validator_1.body)("email").isEmail().withMessage("Please enter a valid email"),
+    (0, express_validator_1.body)("password").notEmpty().withMessage("Password is required"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.login);
 /**
  * @swagger
  * /api/users/logout:
@@ -220,13 +246,9 @@ router.post(
  *         description: Not authenticated
  */
 // Logout user
-router.post(
-  "/logout",
-  authenticate as any,
-  // @ts-ignore - Type issues with Express 5
-  userController.logout
-);
-
+router.post("/logout", auth_1.authenticate, 
+// @ts-ignore - Type issues with Express 5
+userController.logout);
 /**
  * @swagger
  * /api/users/forget-password:
@@ -266,15 +288,11 @@ router.post(
  *         description: User not found
  */
 // Forget password
-router.post(
-  "/forget-password",
-  [
-    body("email").isEmail().withMessage("Please enter a valid email"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.forgetPassword
-);
-
+router.post("/forget-password", [
+    (0, express_validator_1.body)("email").isEmail().withMessage("Please enter a valid email"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.forgetPassword);
 /**
  * @swagger
  * /api/users/reset-password:
@@ -312,18 +330,14 @@ router.post(
  *         description: Invalid input or expired token
  */
 // Reset password
-router.post(
-  "/reset-password",
-  [
-    body("token").notEmpty().withMessage("Reset token is required"),
-    body("newPassword")
-      .isLength({ min: 6 })
-      .withMessage("New password must be at least 6 characters long"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.resetPassword
-);
-
+router.post("/reset-password", [
+    (0, express_validator_1.body)("token").notEmpty().withMessage("Reset token is required"),
+    (0, express_validator_1.body)("newPassword")
+        .isLength({ min: 6 })
+        .withMessage("New password must be at least 6 characters long"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.resetPassword);
 /**
  * @swagger
  * /api/users/test-email:
@@ -352,15 +366,11 @@ router.post(
  *         description: Failed to send email
  */
 // Test email (remove in production)
-router.post(
-  "/test-email",
-  [
-    body("email").isEmail().withMessage("Please enter a valid email"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.sendTestEmail
-);
-
+router.post("/test-email", [
+    (0, express_validator_1.body)("email").isEmail().withMessage("Please enter a valid email"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.sendTestEmail);
 /**
  * @swagger
  * /api/users/profile:
@@ -381,8 +391,7 @@ router.post(
  */
 // Get user profile
 // @ts-ignore - Type issues with Express 5
-router.get("/profile", authenticate, userController.getProfile);
-
+router.get("/profile", auth_1.authenticate, userController.getProfile);
 /**
  * @swagger
  * /api/users/profile:
@@ -425,24 +434,19 @@ router.get("/profile", authenticate, userController.getProfile);
  *         description: Unauthorized
  */
 // Update user profile
-router.put(
-  "/profile",
-  authenticate as any,
-  [
-    body("name").optional(),
-    body("email")
-      .optional()
-      .isEmail()
-      .withMessage("Please enter a valid email"),
-    body("bio").optional(),
-    body("avatar").optional(),
-    body("location").optional(),
-    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.updateProfile
-);
-
+router.put("/profile", auth_1.authenticate, [
+    (0, express_validator_1.body)("name").optional(),
+    (0, express_validator_1.body)("email")
+        .optional()
+        .isEmail()
+        .withMessage("Please enter a valid email"),
+    (0, express_validator_1.body)("bio").optional(),
+    (0, express_validator_1.body)("avatar").optional(),
+    (0, express_validator_1.body)("location").optional(),
+    (0, express_validator_1.body)("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.updateProfile);
 // ADMIN ROUTES - Must come before parameterized routes
 /**
  * @swagger
@@ -468,13 +472,7 @@ router.put(
  */
 // Get all users (admin only)
 // @ts-ignore - Type issues with Express 5
-router.get(
-  "/admin/all",
-  authenticate as any,
-  isAdmin as any,
-  userController.getAllUsers
-);
-
+router.get("/admin/all", auth_1.authenticate, auth_1.isAdmin, userController.getAllUsers);
 /**
  * @swagger
  * /api/users/admin/{id}:
@@ -522,22 +520,16 @@ router.get(
  *         description: User not found
  */
 // Update any user (admin only)
-router.put(
-  "/admin/:id",
-  authenticate as any,
-  isAdmin as any,
-  [
-    body("name").optional(),
-    body("email")
-      .optional()
-      .isEmail()
-      .withMessage("Please enter a valid email"),
-    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.updateUserByAdmin
-);
-
+router.put("/admin/:id", auth_1.authenticate, auth_1.isAdmin, [
+    (0, express_validator_1.body)("name").optional(),
+    (0, express_validator_1.body)("email")
+        .optional()
+        .isEmail()
+        .withMessage("Please enter a valid email"),
+    (0, express_validator_1.body)("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.updateUserByAdmin);
 /**
  * @swagger
  * /api/users/admin/{id}:
@@ -565,13 +557,7 @@ router.put(
  */
 // Delete a user (admin only)
 // @ts-ignore - Type issues with Express 5
-router.delete(
-  "/admin/:id",
-  authenticate as any,
-  isAdmin as any,
-  userController.deleteUser
-);
-
+router.delete("/admin/:id", auth_1.authenticate, auth_1.isAdmin, userController.deleteUser);
 // PARAMETERIZED ROUTES - Must come after specific routes
 /**
  * @swagger
@@ -599,7 +585,6 @@ router.delete(
 // Get user by ID
 // @ts-ignore - Type issues with Express 5
 router.get("/:id", userController.getUserById);
-
 /**
  * @swagger
  * /api/users/{id}/ratings:
@@ -628,7 +613,6 @@ router.get("/:id", userController.getUserById);
 // Get user ratings
 // @ts-ignore - Type issues with Express 5
 router.get("/:id/ratings", userController.getUserRatings);
-
 /**
  * @swagger
  * /api/users/{id}/rate:
@@ -676,19 +660,14 @@ router.get("/:id/ratings", userController.getUserRatings);
  *         description: User not found
  */
 // Rate a user
-router.post(
-  "/:id/rate",
-  authenticate as any,
-  [
-    body("rating")
-      .isInt({ min: 1, max: 5 })
-      .withMessage("Rating must be between 1 and 5"),
-    body("comment").optional(),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.rateUser
-);
-
+router.post("/:id/rate", auth_1.authenticate, [
+    (0, express_validator_1.body)("rating")
+        .isInt({ min: 1, max: 5 })
+        .withMessage("Rating must be between 1 and 5"),
+    (0, express_validator_1.body)("comment").optional(),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.rateUser);
 /**
  * @swagger
  * /api/users/{id}/report:
@@ -730,19 +709,14 @@ router.post(
  *       404:
  *         description: User not found
  */
-router.post(
-  "/:id/report",
-  authenticate as any,
-  [
-    body("reason")
-      .isIn(["inappropriate", "fake", "scam", "harassment", "other"])
-      .withMessage("Valid reason is required"),
-    body("description").optional(),
-  ],
-  // @ts-ignore - Type issues with Express 5
-  userController.reportUser
-);
-
+router.post("/:id/report", auth_1.authenticate, [
+    (0, express_validator_1.body)("reason")
+        .isIn(["inappropriate", "fake", "scam", "harassment", "other"])
+        .withMessage("Valid reason is required"),
+    (0, express_validator_1.body)("description").optional(),
+], 
+// @ts-ignore - Type issues with Express 5
+userController.reportUser);
 /**
  * @swagger
  * /api/users/admin/dashboard:
@@ -760,13 +734,7 @@ router.post(
  *         description: Forbidden - Admin access required
  */
 // @ts-ignore - Type issues with Express 5
-router.get(
-  "/admin/dashboard",
-  authenticate as any,
-  isAdmin as any,
-  userController.getDashboardStats
-);
-
+router.get("/admin/dashboard", auth_1.authenticate, auth_1.isAdmin, userController.getDashboardStats);
 /**
  * @swagger
  * /api/users/admin/reports:
@@ -801,11 +769,5 @@ router.get(
  *         description: Forbidden - Admin access required
  */
 // @ts-ignore - Type issues with Express 5
-router.get(
-  "/admin/reports",
-  authenticate as any,
-  isAdmin as any,
-  userController.getReportedUsers
-);
-
-export default router;
+router.get("/admin/reports", auth_1.authenticate, auth_1.isAdmin, userController.getReportedUsers);
+exports.default = router;

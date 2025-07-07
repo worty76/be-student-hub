@@ -25,9 +25,10 @@ const MONGO_URI = config.MONGO_URI;
 // Middleware
 app.use(
   cors({
-    origin: "*", // for open API
+    origin: process.env.FRONTEND_URL, // Use specific client URL instead of wildcard
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // Allow credentials (cookies, authorization headers)
   })
 );
 app.use(helmet());
