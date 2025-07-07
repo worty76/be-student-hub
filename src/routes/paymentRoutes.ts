@@ -82,10 +82,14 @@ router.post(
  *             type: object
  *             required:
  *               - productId
+ *               - shippingAddress
  *             properties:
  *               productId:
  *                 type: string
  *                 description: ID of the product to purchase
+ *               shippingAddress:
+ *                 type: string
+ *                 description: Shipping address for product delivery
  *               bankCode:
  *                 type: string
  *                 description: Bank code for direct bank payment
@@ -123,7 +127,10 @@ router.post(
   [
     body('productId')
       .notEmpty()
-      .withMessage('Product ID is required')
+      .withMessage('Product ID is required'),
+    body('shippingAddress')
+      .notEmpty()
+      .withMessage('Shipping address is required')
   ],
   paymentController.createVNPayPayment
 );
@@ -300,5 +307,196 @@ router.get('/history', authenticate as any, paymentController.getPaymentHistory)
  *         description: IPN processed
  */
 router.post('/momo/ipn', paymentController.handleMomoIPN);
+
+/**
+ * @swagger
+ * /api/payments/purchases:
+ *   get:
+ *     summary: Get user purchase history
+ *     description: Get detailed purchase history for the authenticated user with filtering and pagination
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, completed, failed, all]
+ *           default: completed
+ *         description: Filter by payment status
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *           enum: [books, electronics, furniture, clothing, vehicles, services, other]
+ *         description: Filter by product category
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, amount]
+ *           default: createdAt
+ *         description: Sort field
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *       - in: query
+ *         name: minAmount
+ *         schema:
+ *           type: number
+ *         description: Minimum purchase amount filter
+ *       - in: query
+ *         name: maxAmount
+ *         schema:
+ *           type: number
+ *         description: Maximum purchase amount filter
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Start date for date range filter
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: End date for date range filter
+ *     responses:
+ *       200:
+ *         description: Purchase history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     purchases:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     pagination:
+ *                       type: object
+ *                     statistics:
+ *                       type: object
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/purchases', authenticate as any, paymentController.getUserPurchaseHistory);
+
+/**
+ * @swagger
+ * /api/payments/purchases/{orderId}:
+ *   get:
+ *     summary: Get detailed purchase information
+ *     description: Get comprehensive details about a specific purchase
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID of the purchase
+ *     responses:
+ *       200:
+ *         description: Purchase details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                     transactionId:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     paymentMethod:
+ *                       type: string
+ *                     paymentStatus:
+ *                       type: string
+ *                     shippingAddress:
+ *                       type: string
+ *                     purchaseDate:
+ *                       type: string
+ *                       format: date-time
+ *                     product:
+ *                       type: object
+ *                     seller:
+ *                       type: object
+ *                     timeline:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Purchase not found
+ */
+router.get('/purchases/:orderId', authenticate as any, paymentController.getPurchaseDetails);
+
+/**
+ * @swagger
+ * /api/payments/{orderId}/success:
+ *   get:
+ *     summary: Get payment success details
+ *     tags: [Payments]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID to get success details for
+ *     responses:
+ *       200:
+ *         description: Payment success details retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product purchased successfully"
+ *                 product:
+ *                   type: object
+ *                 transaction:
+ *                   type: object
+ *       404:
+ *         description: Payment or product not found
+ *       400:
+ *         description: Payment not completed
+ */
+router.get('/:orderId/success', paymentController.getPaymentSuccess);
 
 export default router; 

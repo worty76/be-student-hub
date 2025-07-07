@@ -73,6 +73,9 @@ const PaymentSchema = new mongoose_1.Schema({
         enum: ['pending', 'completed', 'failed', 'refunded'],
         default: 'pending',
     },
+    shippingAddress: {
+        type: String,
+    },
     transactionId: {
         type: String,
     },

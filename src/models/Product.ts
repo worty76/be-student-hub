@@ -10,6 +10,7 @@ export interface IProduct extends Document {
   condition: 'new' | 'like new' | 'good' | 'fair' | 'poor';
   status: 'available' | 'pending' | 'sold';
   seller: mongoose.Types.ObjectId;
+  buyer?: mongoose.Types.ObjectId;
   location?: string;
   views: number;
   favorites: number;
@@ -55,6 +56,10 @@ const ProductSchema = new Schema<IProduct>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true
+    },
+    buyer: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     },
     location: {
       type: String

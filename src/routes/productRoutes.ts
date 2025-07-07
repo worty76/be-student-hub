@@ -939,12 +939,17 @@ router.put(
  *         required: true
  *         description: Product ID
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - shippingAddress
  *             properties:
+ *               shippingAddress:
+ *                 type: string
+ *                 description: Shipping address for product delivery
  *               bankCode:
  *                 type: string
  *                 description: Bank code for direct bank payment

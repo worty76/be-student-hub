@@ -76,7 +76,7 @@ export const createVNPayPayment = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const { productId, bankCode, locale } = req.body;
+    const { productId, bankCode, locale, shippingAddress } = req.body;
     const buyerId = req.user.id;
 
     const product = await Product.findById(productId);
@@ -92,6 +92,12 @@ export const createVNPayPayment = async (req: Request, res: Response): Promise<v
 
     if (product.seller.toString() === buyerId) {
       res.status(400).json({ message: 'Bạn không thể mua sản phẩm của chính mình' });
+      return;
+    }
+
+    // Check if shipping address is provided
+    if (!shippingAddress) {
+      res.status(400).json({ message: 'Địa chỉ giao hàng là bắt buộc' });
       return;
     }
 
@@ -112,6 +118,7 @@ export const createVNPayPayment = async (req: Request, res: Response): Promise<v
       sellerId: product.seller,
       paymentMethod: 'vnpay',
       paymentStatus: 'pending',
+      shippingAddress,
     });
     await payment.save();
 
@@ -188,7 +195,10 @@ export const handleVNPayReturn = async (req: Request, res: Response): Promise<vo
     const responseCode = vnpParams.vnp_ResponseCode as string;
     const transactionStatus = vnpParams.vnp_TransactionStatus as string;
     
-    const payment = await Payment.findOne({ orderId });
+    const payment = await Payment.findOne({ orderId })
+      .populate('productId')
+      .populate('buyerId', 'name email')
+      .populate('sellerId', 'name email');
     
     if (!payment) {
       res.status(404).json({ message: 'Payment not found' });
@@ -196,9 +206,36 @@ export const handleVNPayReturn = async (req: Request, res: Response): Promise<vo
     }
     
     if (responseCode === '00' && transactionStatus === '00') {
+      // Update payment status
       payment.paymentStatus = 'completed';
       payment.transactionId = transactionId;
       await payment.save();
+
+      // Update product status to sold
+      const product = await Product.findByIdAndUpdate(
+        payment.productId,
+        { 
+          status: 'sold',
+          buyer: payment.buyerId 
+        },
+        { new: true }
+      );
+
+      if (!product) {
+        res.status(404).json({ message: 'Product not found' });
+        return;
+      }
+
+      // Create transaction object for response
+      const transaction = {
+        buyer: payment.buyerId,
+        seller: payment.sellerId,
+        product: payment.productId,
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        shippingAddress: payment.shippingAddress || '',
+        date: new Date().toISOString()
+      };
 
       res.redirect(`${process.env.FRONTEND_URL}/payment/success?orderId=${orderId}`);
     } else {
@@ -207,7 +244,11 @@ export const handleVNPayReturn = async (req: Request, res: Response): Promise<vo
       payment.errorMessage = `Transaction failed with code ${responseCode}`;
       await payment.save();
       
-      res.redirect(`${process.env.CLIENT_URL}/payment/failed?orderId=${orderId}&code=${responseCode}`);
+      // Redirect to frontend failure page
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/payment/failed?orderId=${orderId}&code=${responseCode}&message=${encodeURIComponent(`Transaction failed with code ${responseCode}`)}`;
+      
+      res.redirect(302, redirectUrl);
     }
   } catch (error: any) {
     console.error('VNPay Return error:', error);
@@ -256,6 +297,15 @@ export const handleVNPayIPN = async (req: Request, res: Response): Promise<void>
       payment.paymentStatus = 'completed';
       payment.transactionId = vnpParams.vnp_TransactionNo as string;
       await payment.save();
+      
+      // Update product status to sold
+      await Product.findByIdAndUpdate(
+        payment.productId,
+        { 
+          status: 'sold',
+          buyer: payment.buyerId 
+        }
+      );
       
       res.status(200).json({ RspCode: '00', Message: 'Success' });
     } else {
@@ -380,4 +430,283 @@ export const getPaymentHistory = async (req: Request, res: Response): Promise<vo
     console.error('Get payment history error:', error);
     res.status(500).json({ message: error.message || 'Lỗi khi lấy lịch sử thanh toán' });
   }
-}; 
+};
+
+/**
+ * Get payment success details by orderId
+ * @route GET /api/payments/:orderId/success
+ * @access Public
+ */
+export const getPaymentSuccess = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    
+    const payment = await Payment.findOne({ orderId })
+      .populate('productId')
+      .populate('buyerId', 'name email')
+      .populate('sellerId', 'name email');
+    
+    if (!payment) {
+      res.status(404).json({ message: 'Payment not found' });
+      return;
+    }
+    
+    if (payment.paymentStatus !== 'completed') {
+      res.status(400).json({ message: 'Payment not completed' });
+      return;
+    }
+    
+    const product = await Product.findById(payment.productId);
+    
+    if (!product) {
+      res.status(404).json({ message: 'Product not found' });
+      return;
+    }
+    
+    // Create transaction object for response
+    const transaction = {
+      buyer: payment.buyerId,
+      seller: payment.sellerId,
+      product: payment.productId,
+      amount: payment.amount,
+      paymentMethod: payment.paymentMethod,
+      shippingAddress: payment.shippingAddress || '',
+      date: payment.updatedAt.toISOString()
+    };
+    
+    // Return success response
+    res.status(200).json({
+      message: 'Product purchased successfully',
+      product: product,
+      transaction: transaction
+    });
+  } catch (error: any) {
+    console.error('Get payment success error:', error);
+    res.status(500).json({ message: error.message || 'Lỗi khi lấy thông tin thanh toán thành công' });
+  }
+};
+
+/**
+ * Get user purchase history (only items the user bought)
+ * @route GET /api/payments/purchases
+ * @access Private
+ */
+export const getUserPurchaseHistory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user.id;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status = 'completed', 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      category,
+      minAmount,
+      maxAmount,
+      startDate,
+      endDate
+    } = req.query;
+
+    // Build filter object
+    const filter: any = {
+      buyerId: userId,
+    };
+
+    // Add status filter
+    if (status && status !== 'all') {
+      filter.paymentStatus = status;
+    }
+
+    // Add amount range filter
+    if (minAmount || maxAmount) {
+      filter.amount = {};
+      if (minAmount) filter.amount.$gte = Number(minAmount);
+      if (maxAmount) filter.amount.$lte = Number(maxAmount);
+    }
+
+    // Add date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate as string);
+      if (endDate) filter.createdAt.$lte = new Date(endDate as string);
+    }
+
+    // Calculate pagination
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build sort object
+    const sort: any = {};
+    sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+
+    // Get purchases with population
+    const purchases = await Payment.find(filter)
+      .populate({
+        path: 'productId',
+        select: 'title description price images category condition status location seller createdAt',
+        populate: {
+          path: 'seller',
+          select: 'name email avatar'
+        }
+      })
+      .populate('sellerId', 'name email avatar')
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Apply category filter on populated products (if specified)
+    let filteredPurchases = purchases;
+    if (category) {
+      filteredPurchases = purchases.filter(purchase => 
+        purchase.productId && (purchase.productId as any).category === category
+      );
+    }
+
+    // Get total count for pagination
+    const totalPurchases = await Payment.countDocuments(filter);
+
+    // Calculate statistics
+    const stats = await Payment.aggregate([
+      { $match: { buyerId: userId, paymentStatus: 'completed' } },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: '$amount' },
+          totalPurchases: { $sum: 1 },
+          averageOrderValue: { $avg: '$amount' }
+        }
+      }
+    ]);
+
+    // Format the response
+    const formattedPurchases = filteredPurchases.map(purchase => ({
+      orderId: purchase.orderId,
+      transactionId: purchase.transactionId,
+      amount: purchase.amount,
+      paymentMethod: purchase.paymentMethod,
+      paymentStatus: purchase.paymentStatus,
+      shippingAddress: purchase.shippingAddress,
+      purchaseDate: purchase.createdAt,
+      product: purchase.productId ? {
+        _id: (purchase.productId as any)._id,
+        title: (purchase.productId as any).title,
+        description: (purchase.productId as any).description,
+        price: (purchase.productId as any).price,
+        images: (purchase.productId as any).images,
+        category: (purchase.productId as any).category,
+        condition: (purchase.productId as any).condition,
+        status: (purchase.productId as any).status,
+        location: (purchase.productId as any).location,
+        seller: (purchase.productId as any).seller
+      } : null
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        purchases: formattedPurchases,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalPurchases / limitNum),
+          totalItems: totalPurchases,
+          itemsPerPage: limitNum,
+          hasNextPage: pageNum < Math.ceil(totalPurchases / limitNum),
+          hasPrevPage: pageNum > 1
+        },
+        statistics: stats.length > 0 ? {
+          totalSpent: stats[0].totalSpent,
+          totalPurchases: stats[0].totalPurchases,
+          averageOrderValue: Math.round(stats[0].averageOrderValue)
+        } : {
+          totalSpent: 0,
+          totalPurchases: 0,
+          averageOrderValue: 0
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Get user purchase history error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Lỗi khi lấy lịch sử mua hàng' 
+    });
+  }
+};
+
+/**
+ * Get detailed purchase information by purchase ID
+ * @route GET /api/payments/purchases/:orderId
+ * @access Private
+ */
+export const getPurchaseDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.id;
+
+    const purchase = await Payment.findOne({ 
+      orderId, 
+      buyerId: userId 
+    })
+      .populate({
+        path: 'productId',
+        populate: {
+          path: 'seller',
+          select: 'name email avatar phone'
+        }
+      })
+      .populate('sellerId', 'name email avatar phone')
+      .lean();
+
+    if (!purchase) {
+      res.status(404).json({ 
+        success: false,
+        message: 'Purchase not found' 
+      });
+      return;
+    }
+
+    // Format detailed response
+    const detailedPurchase = {
+      orderId: purchase.orderId,
+      transactionId: purchase.transactionId,
+      amount: purchase.amount,
+      paymentMethod: purchase.paymentMethod,
+      paymentStatus: purchase.paymentStatus,
+      shippingAddress: purchase.shippingAddress,
+      purchaseDate: purchase.createdAt,
+      updatedAt: purchase.updatedAt,
+      product: purchase.productId,
+      seller: purchase.sellerId,
+      timeline: [
+        {
+          status: 'pending',
+          date: purchase.createdAt,
+          description: 'Payment initiated'
+        },
+        ...(purchase.paymentStatus === 'completed' ? [{
+          status: 'completed',
+          date: purchase.updatedAt,
+          description: 'Payment completed successfully'
+        }] : []),
+        ...(purchase.paymentStatus === 'failed' ? [{
+          status: 'failed',
+          date: purchase.updatedAt,
+          description: `Payment failed: ${purchase.errorMessage || 'Unknown error'}`
+        }] : [])
+      ]
+    };
+
+    res.status(200).json({
+      success: true,
+      data: detailedPurchase
+    });
+  } catch (error: any) {
+    console.error('Get purchase details error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Lỗi khi lấy chi tiết mua hàng' 
+    });
+  }
+};

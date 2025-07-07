@@ -9,6 +9,7 @@ export interface IPayment extends Document {
   sellerId: Schema.Types.ObjectId;
   paymentMethod: string;
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  shippingAddress?: string;
   transactionId?: string;
   payUrl?: string;
   extraData?: string;
@@ -57,6 +58,9 @@ const PaymentSchema = new Schema<IPayment>(
       type: String,
       enum: ['pending', 'completed', 'failed', 'refunded'],
       default: 'pending',
+    },
+    shippingAddress: {
+      type: String,
     },
     transactionId: {
       type: String,

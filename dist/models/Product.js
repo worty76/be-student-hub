@@ -72,6 +72,10 @@ const ProductSchema = new mongoose_1.Schema({
         ref: 'User',
         required: true
     },
+    buyer: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'User'
+    },
     location: {
         type: String
     },

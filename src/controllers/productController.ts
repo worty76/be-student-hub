@@ -848,7 +848,7 @@ export const getPendingProducts = async (
 export const purchaseProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { bankCode, locale } = req.body;
+    const { bankCode, locale, shippingAddress } = req.body;
     const buyerId = req.user.id;
 
     // Find product
@@ -867,6 +867,12 @@ export const purchaseProduct = async (req: Request, res: Response): Promise<void
     // Check if user is trying to buy their own product
     if (product.seller.toString() === buyerId) {
       res.status(400).json({ message: 'Bạn không thể mua sản phẩm của chính mình' });
+      return;
+    }
+
+    // Check if shipping address is provided
+    if (!shippingAddress) {
+      res.status(400).json({ message: 'Địa chỉ giao hàng là bắt buộc' });
       return;
     }
 
@@ -889,6 +895,7 @@ export const purchaseProduct = async (req: Request, res: Response): Promise<void
       sellerId: product.seller,
       paymentMethod: 'vnpay',
       paymentStatus: 'pending',
+      shippingAddress,
     });
     await payment.save();
 
