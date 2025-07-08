@@ -19,6 +19,7 @@ const productRoutes_1 = __importDefault(require("./routes/productRoutes"));
 const chatRoutes_1 = __importDefault(require("./routes/chatRoutes"));
 const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
+const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 // Create Express app
 const app = (0, express_1.default)();
 const PORT = config_1.default.PORT;
@@ -52,6 +53,8 @@ app.use("/api/products", productRoutes_1.default);
 app.use("/api/chats", chatRoutes_1.default);
 app.use("/api/comments", commentRoutes_1.default);
 app.use("/api/payments", paymentRoutes_1.default);
+app.use("/api/admin", adminRoutes_1.default);
+app.use("/api/admin", adminRoutes_1.default);
 // Create HTTP server and Socket.io instance
 const httpServer = (0, http_1.createServer)(app);
 const io = new socket_io_1.Server(httpServer, {
