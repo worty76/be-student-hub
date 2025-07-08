@@ -512,4 +512,50 @@ router.get('/purchases/:orderId', auth_1.authenticate, paymentController.getPurc
  *         description: Payment not completed
  */
 router.get('/:orderId/success', paymentController.getPaymentSuccess);
+/**
+ * @swagger
+ * /api/payments/confirm-receipt/{orderId}:
+ *   post:
+ *     summary: Confirm receipt of purchased product
+ *     description: Allows the buyer to manually confirm they have received the product
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID of the purchase to confirm
+ *     responses:
+ *       200:
+ *         description: Receipt confirmed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                     receivedSuccessfully:
+ *                       type: boolean
+ *                     receivedConfirmedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid request or receipt already confirmed
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Payment not found
+ */
+router.post('/confirm-receipt/:orderId', auth_1.authenticate, paymentController.confirmReceipt);
 exports.default = router;

@@ -3,6 +3,7 @@ import https from 'https';
 import config from '../config/config';
 import Payment from '../models/Payment';
 import Product from '../models/Product';
+import moment from 'moment';
 
 interface MomoPaymentRequest {
   productId: string;
@@ -251,6 +252,8 @@ export const processMomoIPN = async (ipnData: any): Promise<any> => {
     // Payment successful
     payment.paymentStatus = 'completed';
     payment.transactionId = transId;
+    // Set 7-day deadline for receipt confirmation
+    payment.receivedSuccessfullyDeadline = moment().add(7, 'days').toDate();
     await payment.save();
 
     // Update product status to sold

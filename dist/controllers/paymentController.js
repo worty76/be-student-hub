@@ -3,13 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPurchaseDetails = exports.getUserPurchaseHistory = exports.getPaymentSuccess = exports.getPaymentHistory = exports.refundVNPayTransaction = exports.queryVNPayTransaction = exports.getPaymentStatus = exports.handleVNPayIPN = exports.handleVNPayReturn = exports.handleMomoIPN = exports.createVNPayPayment = exports.createPayment = void 0;
+exports.confirmReceipt = exports.getPurchaseDetails = exports.getUserPurchaseHistory = exports.getPaymentSuccess = exports.getPaymentHistory = exports.refundVNPayTransaction = exports.queryVNPayTransaction = exports.getPaymentStatus = exports.handleVNPayIPN = exports.handleVNPayReturn = exports.handleMomoIPN = exports.createVNPayPayment = exports.createPayment = void 0;
 const express_validator_1 = require("express-validator");
 const momoService_1 = require("../services/momoService");
 const vnpayService_1 = require("../services/vnpayService");
 const Product_1 = __importDefault(require("../models/Product"));
 const Payment_1 = __importDefault(require("../models/Payment"));
 const moment_1 = __importDefault(require("moment"));
+const schedulerService_1 = __importDefault(require("../services/schedulerService"));
 /**
  * Create a MoMo payment for a product
  * @route POST /api/payments/momo/create
@@ -261,6 +262,8 @@ const handleVNPayIPN = async (req, res) => {
         if (responseCode === '00') {
             payment.paymentStatus = 'completed';
             payment.transactionId = vnpParams.vnp_TransactionNo;
+            // Set 7-day deadline for receipt confirmation
+            payment.receivedSuccessfullyDeadline = (0, moment_1.default)().add(7, 'days').toDate();
             await payment.save();
             // Update product status to sold
             await Product_1.default.findByIdAndUpdate(payment.productId, {
@@ -518,6 +521,9 @@ const getUserPurchaseHistory = async (req, res) => {
             paymentStatus: purchase.paymentStatus,
             shippingAddress: purchase.shippingAddress,
             purchaseDate: purchase.createdAt,
+            receivedSuccessfully: purchase.receivedSuccessfully,
+            receivedSuccessfullyDeadline: purchase.receivedSuccessfullyDeadline,
+            receivedConfirmedAt: purchase.receivedConfirmedAt,
             product: purchase.productId ? {
                 _id: purchase.productId._id,
                 title: purchase.productId.title,
@@ -603,6 +609,9 @@ const getPurchaseDetails = async (req, res) => {
             shippingAddress: purchase.shippingAddress,
             purchaseDate: purchase.createdAt,
             updatedAt: purchase.updatedAt,
+            receivedSuccessfully: purchase.receivedSuccessfully,
+            receivedSuccessfullyDeadline: purchase.receivedSuccessfullyDeadline,
+            receivedConfirmedAt: purchase.receivedConfirmedAt,
             product: purchase.productId,
             seller: purchase.sellerId,
             timeline: [
@@ -615,6 +624,13 @@ const getPurchaseDetails = async (req, res) => {
                         status: 'completed',
                         date: purchase.updatedAt,
                         description: 'Payment completed successfully'
+                    }] : []),
+                ...(purchase.receivedSuccessfully ? [{
+                        status: 'received',
+                        date: purchase.receivedConfirmedAt,
+                        description: purchase.receivedConfirmedAt && purchase.receivedSuccessfullyDeadline && purchase.receivedConfirmedAt <= purchase.receivedSuccessfullyDeadline
+                            ? 'Receipt confirmed by buyer'
+                            : 'Receipt auto-confirmed after 7 days'
                     }] : []),
                 ...(purchase.paymentStatus === 'failed' ? [{
                         status: 'failed',
@@ -637,3 +653,41 @@ const getPurchaseDetails = async (req, res) => {
     }
 };
 exports.getPurchaseDetails = getPurchaseDetails;
+/**
+ * Confirm receipt of purchased product
+ * @route POST /api/payments/confirm-receipt/:orderId
+ * @access Private
+ */
+const confirmReceipt = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const buyerId = req.user.id;
+        const schedulerService = schedulerService_1.default.getInstance();
+        const result = await schedulerService.confirmReceipt(orderId, buyerId);
+        if (result.success) {
+            res.status(200).json({
+                success: true,
+                message: result.message,
+                data: {
+                    orderId: result.payment.orderId,
+                    receivedSuccessfully: result.payment.receivedSuccessfully,
+                    receivedConfirmedAt: result.payment.receivedConfirmedAt
+                }
+            });
+        }
+        else {
+            res.status(400).json({
+                success: false,
+                message: result.message
+            });
+        }
+    }
+    catch (error) {
+        console.error('Confirm receipt error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi khi xác nhận đã nhận hàng'
+        });
+    }
+};
+exports.confirmReceipt = confirmReceipt;

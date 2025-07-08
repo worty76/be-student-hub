@@ -13,6 +13,7 @@ const socket_io_1 = require("socket.io");
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const config_1 = __importDefault(require("./config/config"));
 const swagger_1 = __importDefault(require("./docs/swagger"));
+const schedulerService_1 = __importDefault(require("./services/schedulerService"));
 // Routes
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const productRoutes_1 = __importDefault(require("./routes/productRoutes"));
@@ -144,6 +145,10 @@ mongoose_1.default
     .connect(MONGO_URI)
     .then(() => {
     console.log("Connected to MongoDB");
+    // Initialize scheduler service
+    const schedulerService = schedulerService_1.default.getInstance();
+    schedulerService.init();
+    console.log("Scheduler service initialized");
     // Start server
     httpServer.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

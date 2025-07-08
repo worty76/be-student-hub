@@ -379,8 +379,9 @@ const buyProduct = async (req, res) => {
             buyerId,
             sellerId: product.seller,
             paymentMethod,
-            paymentStatus: 'completed', // Cash payments are immediately completed
+            paymentStatus: 'completed',
             shippingAddress: shippingAddress || "Not provided",
+            receivedSuccessfullyDeadline: (0, moment_1.default)().add(7, 'days').toDate(),
         });
         await payment.save();
         // Update product status to sold and add buyer

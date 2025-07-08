@@ -9,6 +9,7 @@ import swaggerUi from "swagger-ui-express";
 import config from "./config/config";
 import { errorHandler, notFoundHandler } from "./utils/errorHandler";
 import swaggerSpec from "./docs/swagger";
+import SchedulerService from "./services/schedulerService";
 
 // Routes
 import userRoutes from "./routes/userRoutes";
@@ -164,6 +165,12 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("Connected to MongoDB");
+    
+    // Initialize scheduler service
+    const schedulerService = SchedulerService.getInstance();
+    schedulerService.init();
+    console.log("Scheduler service initialized");
+    
     // Start server
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

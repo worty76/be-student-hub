@@ -5,6 +5,7 @@ import { vnpayService } from '../services/vnpayService';
 import Product from '../models/Product';
 import Payment from '../models/Payment';
 import moment from 'moment';
+import SchedulerService from '../services/schedulerService';
 
 /**
  * Create a MoMo payment for a product
@@ -296,6 +297,8 @@ export const handleVNPayIPN = async (req: Request, res: Response): Promise<void>
     if (responseCode === '00') {
       payment.paymentStatus = 'completed';
       payment.transactionId = vnpParams.vnp_TransactionNo as string;
+      // Set 7-day deadline for receipt confirmation
+      payment.receivedSuccessfullyDeadline = moment().add(7, 'days').toDate();
       await payment.save();
       
       // Update product status to sold
@@ -589,6 +592,9 @@ export const getUserPurchaseHistory = async (req: Request, res: Response): Promi
       paymentStatus: purchase.paymentStatus,
       shippingAddress: purchase.shippingAddress,
       purchaseDate: purchase.createdAt,
+      receivedSuccessfully: purchase.receivedSuccessfully,
+      receivedSuccessfullyDeadline: purchase.receivedSuccessfullyDeadline,
+      receivedConfirmedAt: purchase.receivedConfirmedAt,
       product: purchase.productId ? {
         _id: (purchase.productId as any)._id,
         title: (purchase.productId as any).title,
@@ -677,6 +683,9 @@ export const getPurchaseDetails = async (req: Request, res: Response): Promise<v
       shippingAddress: purchase.shippingAddress,
       purchaseDate: purchase.createdAt,
       updatedAt: purchase.updatedAt,
+      receivedSuccessfully: purchase.receivedSuccessfully,
+      receivedSuccessfullyDeadline: purchase.receivedSuccessfullyDeadline,
+      receivedConfirmedAt: purchase.receivedConfirmedAt,
       product: purchase.productId,
       seller: purchase.sellerId,
       timeline: [
@@ -689,6 +698,13 @@ export const getPurchaseDetails = async (req: Request, res: Response): Promise<v
           status: 'completed',
           date: purchase.updatedAt,
           description: 'Payment completed successfully'
+        }] : []),
+        ...(purchase.receivedSuccessfully ? [{
+          status: 'received',
+          date: purchase.receivedConfirmedAt,
+          description: purchase.receivedConfirmedAt && purchase.receivedSuccessfullyDeadline && purchase.receivedConfirmedAt <= purchase.receivedSuccessfullyDeadline 
+            ? 'Receipt confirmed by buyer' 
+            : 'Receipt auto-confirmed after 7 days'
         }] : []),
         ...(purchase.paymentStatus === 'failed' ? [{
           status: 'failed',
@@ -707,6 +723,44 @@ export const getPurchaseDetails = async (req: Request, res: Response): Promise<v
     res.status(500).json({ 
       success: false,
       message: error.message || 'Lỗi khi lấy chi tiết mua hàng' 
+    });
+  }
+};
+
+/**
+ * Confirm receipt of purchased product
+ * @route POST /api/payments/confirm-receipt/:orderId
+ * @access Private
+ */
+export const confirmReceipt = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const buyerId = req.user.id;
+
+    const schedulerService = SchedulerService.getInstance();
+    const result = await schedulerService.confirmReceipt(orderId, buyerId);
+
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        message: result.message,
+        data: {
+          orderId: result.payment.orderId,
+          receivedSuccessfully: result.payment.receivedSuccessfully,
+          receivedConfirmedAt: result.payment.receivedConfirmedAt
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+  } catch (error: any) {
+    console.error('Confirm receipt error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi khi xác nhận đã nhận hàng'
     });
   }
 };

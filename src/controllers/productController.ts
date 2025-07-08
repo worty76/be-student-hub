@@ -477,8 +477,9 @@ export const buyProduct = async (
       buyerId,
       sellerId: product.seller,
       paymentMethod,
-      paymentStatus: 'completed', // Cash payments are immediately completed
+      paymentStatus: 'completed',
       shippingAddress: shippingAddress || "Not provided",
+      receivedSuccessfullyDeadline: moment().add(7, 'days').toDate(),
     });
 
     await payment.save();

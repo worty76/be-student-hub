@@ -108,6 +108,16 @@ const PaymentSchema = new mongoose_1.Schema({
     errorMessage: {
         type: String,
     },
+    receivedSuccessfully: {
+        type: Boolean,
+        default: false,
+    },
+    receivedSuccessfullyDeadline: {
+        type: Date,
+    },
+    receivedConfirmedAt: {
+        type: Date,
+    },
 }, {
     timestamps: true,
 });

@@ -18,6 +18,9 @@ export interface IPayment extends Document {
   extraData?: string;
   errorCode?: string;
   errorMessage?: string;
+  receivedSuccessfully: boolean;
+  receivedSuccessfullyDeadline?: Date;
+  receivedConfirmedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +99,16 @@ const PaymentSchema = new Schema<IPayment>(
     },
     errorMessage: {
       type: String,
+    },
+    receivedSuccessfully: {
+      type: Boolean,
+      default: false,
+    },
+    receivedSuccessfullyDeadline: {
+      type: Date,
+    },
+    receivedConfirmedAt: {
+      type: Date,
     },
   },
   {

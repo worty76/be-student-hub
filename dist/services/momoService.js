@@ -9,6 +9,7 @@ const https_1 = __importDefault(require("https"));
 const config_1 = __importDefault(require("../config/config"));
 const Payment_1 = __importDefault(require("../models/Payment"));
 const Product_1 = __importDefault(require("../models/Product"));
+const moment_1 = __importDefault(require("moment"));
 /**
  * Generate a signature for MoMo API
  * @param data - Data to sign
@@ -193,6 +194,8 @@ const processMomoIPN = async (ipnData) => {
         // Payment successful
         payment.paymentStatus = 'completed';
         payment.transactionId = transId;
+        // Set 7-day deadline for receipt confirmation
+        payment.receivedSuccessfullyDeadline = (0, moment_1.default)().add(7, 'days').toDate();
         await payment.save();
         // Update product status to sold
         await Product_1.default.findByIdAndUpdate(payment.productId, {
