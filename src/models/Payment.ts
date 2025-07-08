@@ -9,6 +9,9 @@ export interface IPayment extends Document {
   sellerId: Schema.Types.ObjectId;
   paymentMethod: string;
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  adminCommissionRate: number;
+  adminCommission: number;
+  sellerAmount: number;
   shippingAddress?: string;
   transactionId?: string;
   payUrl?: string;
@@ -59,6 +62,23 @@ const PaymentSchema = new Schema<IPayment>(
       enum: ['pending', 'completed', 'failed', 'refunded'],
       default: 'pending',
     },
+    adminCommissionRate: {
+      type: Number,
+      required: true,
+      default: 0.05, // Default 5% commission
+      min: 0,
+      max: 1,
+    },
+    adminCommission: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    sellerAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
     shippingAddress: {
       type: String,
     },
@@ -82,5 +102,14 @@ const PaymentSchema = new Schema<IPayment>(
     timestamps: true,
   }
 );
+
+// Pre-save hook to calculate admin commission and seller amount
+PaymentSchema.pre('save', function(next) {
+  if (this.isModified('amount') || this.isModified('adminCommissionRate')) {
+    this.adminCommission = this.amount * this.adminCommissionRate;
+    this.sellerAmount = this.amount - this.adminCommission;
+  }
+  next();
+});
 
 export default mongoose.model<IPayment>('Payment', PaymentSchema); 

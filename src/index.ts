@@ -16,6 +16,7 @@ import productRoutes from "./routes/productRoutes";
 import chatRoutes from "./routes/chatRoutes";
 import commentRoutes from "./routes/commentRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
+import adminRoutes from "./routes/adminRoutes";
 
 // Create Express app
 const app = express();
@@ -57,6 +58,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Create HTTP server and Socket.io instance
 const httpServer = createServer(app);
