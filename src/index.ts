@@ -59,6 +59,7 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Create HTTP server and Socket.io instance
 const httpServer = createServer(app);

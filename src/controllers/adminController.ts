@@ -266,4 +266,4 @@ export const getMonthlyAdminProfits = async (req: Request, res: Response) => {
     console.error('Error getting monthly admin profits:', error);
     return res.status(500).json({ message: 'Server error' });
   }
-}; 
+};

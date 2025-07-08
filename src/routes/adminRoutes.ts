@@ -233,4 +233,4 @@ router.get(
   getMonthlyAdminProfits
 );
 
-export default router; 
+export default router;
