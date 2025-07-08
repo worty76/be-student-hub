@@ -515,9 +515,12 @@ export const getUserPurchaseHistory = async (req: Request, res: Response): Promi
       buyerId: userId,
     };
 
-    // Add status filter
+    // Add status filter - exclude failed/canceled purchases by default
     if (status && status !== 'all') {
       filter.paymentStatus = status;
+    } else if (!status || status === 'completed') {
+      // Explicitly exclude failed/canceled purchases by default
+      filter.paymentStatus = { $ne: 'failed' };
     }
 
     // Add amount range filter

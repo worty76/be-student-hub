@@ -948,3 +948,320 @@ export const purchaseProduct = async (req: Request, res: Response): Promise<void
     res.status(500).json({ message: error.message || 'Lỗi khi mua sản phẩm' });
   }
 };
+
+/**
+ * Update shipping address for a purchase
+ * @route PUT /api/products/purchases/:orderId/shipping-address
+ * @access Private (Buyer only)
+ */
+export const updatePurchaseShippingAddress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const { shippingAddress } = req.body;
+    const buyerId = req.user.id;
+
+    if (!shippingAddress || !shippingAddress.trim()) {
+      res.status(400).json({ message: 'Địa chỉ giao hàng là bắt buộc' });
+      return;
+    }
+
+    // Find purchase by buyer
+    const payment = await Payment.findOne({ 
+      orderId, 
+      buyerId 
+    }).populate('productId');
+
+    if (!payment) {
+      res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      return;
+    }
+
+    // Check if purchase can be edited (not delivered/received yet)
+    if (payment.receivedSuccessfully) {
+      res.status(400).json({ message: 'Không thể chỉnh sửa đơn hàng đã nhận hàng' });
+      return;
+    }
+
+    // Check 6-hour time limit for editing
+    const timeDiff = Date.now() - new Date(payment.createdAt).getTime();
+    const hoursDiff = timeDiff / (1000 * 60 * 60);
+    
+    if (hoursDiff > 6) {
+      res.status(400).json({ 
+        message: 'Không thể thay đổi địa chỉ giao hàng sau 6 giờ kể từ khi đặt hàng' 
+      });
+      return;
+    }
+
+    // Update shipping address
+    payment.shippingAddress = shippingAddress.trim();
+    await payment.save();
+
+    res.json({
+      message: 'Cập nhật địa chỉ giao hàng thành công',
+      purchase: {
+        orderId: payment.orderId,
+        shippingAddress: payment.shippingAddress,
+        updatedAt: payment.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Update shipping address error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Add or update purchase notes
+ * @route PUT /api/products/purchases/:orderId/notes
+ * @access Private (Buyer or Seller)
+ */
+export const updatePurchaseNotes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const { notes, noteType = 'buyer' } = req.body; // noteType: 'buyer' | 'seller'
+    const userId = req.user.id;
+
+    if (!notes || !notes.trim()) {
+      res.status(400).json({ message: 'Ghi chú không được để trống' });
+      return;
+    }
+
+    // Find purchase
+    const payment = await Payment.findOne({ orderId });
+
+    if (!payment) {
+      res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      return;
+    }
+
+    // Check if user is buyer or seller
+    const isBuyer = payment.buyerId.toString() === userId;
+    const isSeller = payment.sellerId.toString() === userId;
+
+    if (!isBuyer && !isSeller) {
+      res.status(403).json({ message: 'Không có quyền chỉnh sửa đơn hàng này' });
+      return;
+    }
+
+    // Determine which notes field to update based on user role
+    const actualNoteType = isBuyer ? 'buyer' : 'seller';
+    
+    // Add notes to extraData (stored as JSON)
+    let extraData: any = {};
+    try {
+      extraData = payment.extraData ? JSON.parse(payment.extraData) : {};
+    } catch {
+      extraData = {};
+    }
+
+    extraData[`${actualNoteType}Notes`] = {
+      content: notes.trim(),
+      updatedAt: new Date(),
+      updatedBy: userId
+    };
+
+    payment.extraData = JSON.stringify(extraData);
+    await payment.save();
+
+    res.json({
+      message: 'Cập nhật ghi chú thành công',
+      purchase: {
+        orderId: payment.orderId,
+        notes: extraData[`${actualNoteType}Notes`],
+        updatedAt: payment.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Update purchase notes error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Cancel a purchase (before payment completion or within timeframe)
+ * @route POST /api/products/purchases/:orderId/cancel
+ * @access Private (Buyer only)
+ */
+export const cancelPurchase = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+    const buyerId = req.user.id;
+
+    // Find purchase by buyer
+    const payment = await Payment.findOne({ 
+      orderId, 
+      buyerId 
+    }).populate('productId');
+
+    if (!payment) {
+      res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      return;
+    }
+
+    // Check if purchase can be cancelled
+    if (payment.paymentStatus === 'failed') {
+      res.status(400).json({ message: 'Đơn hàng đã bị hủy trước đó' });
+      return;
+    }
+
+    if (payment.receivedSuccessfully) {
+      res.status(400).json({ message: 'Không thể hủy đơn hàng đã nhận hàng' });
+      return;
+    }
+
+    // Check time limit for cancellation (6 hours for completed payments)
+    if (payment.paymentStatus === 'completed') {
+      const timeDiff = Date.now() - new Date(payment.createdAt).getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      
+      if (hoursDiff > 6) {
+        res.status(400).json({ 
+          message: 'Không thể hủy đơn hàng sau 6 giờ kể từ khi đặt hàng' 
+        });
+        return;
+      }
+    }
+
+    // Update payment status to failed and add cancellation reason
+    payment.paymentStatus = 'failed';
+    payment.errorMessage = `Cancelled by buyer: ${reason || 'No reason provided'}`;
+    
+    // Add cancellation info to extraData
+    let extraData: any = {};
+    try {
+      extraData = payment.extraData ? JSON.parse(payment.extraData) : {};
+    } catch {
+      extraData = {};
+    }
+
+    extraData.cancellation = {
+      cancelledBy: buyerId,
+      reason: reason || 'No reason provided',
+      cancelledAt: new Date()
+    };
+
+    payment.extraData = JSON.stringify(extraData);
+    await payment.save();
+
+    // Update product status back to available if it was sold
+    const product = await Product.findById(payment.productId);
+    if (product && product.status === 'sold') {
+      product.status = 'available';
+      product.buyer = undefined;
+      await product.save();
+    }
+
+    res.json({
+      message: 'Hủy đơn hàng thành công',
+      purchase: {
+        orderId: payment.orderId,
+        paymentStatus: payment.paymentStatus,
+        cancellationReason: reason || 'No reason provided',
+        cancelledAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Cancel purchase error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Get detailed purchase information for editing
+ * @route GET /api/products/purchases/:orderId/details
+ * @access Private (Buyer or Seller)
+ */
+export const getPurchaseDetailsForEdit = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.id;
+
+    const payment = await Payment.findOne({ orderId })
+      .populate({
+        path: 'productId',
+        populate: {
+          path: 'seller',
+          select: 'name email avatar'
+        }
+      })
+      .populate('buyerId', 'name email avatar')
+      .populate('sellerId', 'name email avatar');
+
+    if (!payment) {
+      res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+      return;
+    }
+
+    // Check if user is buyer or seller
+    const isBuyer = (payment.buyerId as any)._id.toString() === userId;
+    const isSeller = (payment.sellerId as any)._id.toString() === userId;
+
+    if (!isBuyer && !isSeller) {
+      res.status(403).json({ message: 'Không có quyền xem đơn hàng này' });
+      return;
+    }
+
+    // Parse extraData for notes
+    let extraData: any = {};
+    try {
+      extraData = payment.extraData ? JSON.parse(payment.extraData) : {};
+    } catch {
+      extraData = {};
+    }
+
+    // Determine what can be edited based on current status, user role, and time limits
+    const timeDiff = Date.now() - new Date(payment.createdAt).getTime();
+    const hoursDiff = timeDiff / (1000 * 60 * 60);
+    const isWithin6Hours = hoursDiff <= 6;
+    const timeRemainingMs = Math.max(0, (6 * 60 * 60 * 1000) - timeDiff);
+    
+    const canEditShipping = isBuyer && !payment.receivedSuccessfully && isWithin6Hours;
+    const canCancel = isBuyer && 
+      payment.paymentStatus !== 'failed' && 
+      !payment.receivedSuccessfully &&
+      isWithin6Hours;
+    const canAddNotes = true; // Both buyer and seller can always add notes
+
+    const purchaseDetails = {
+      orderId: payment.orderId,
+      transactionId: payment.transactionId,
+      amount: payment.amount,
+      paymentMethod: payment.paymentMethod,
+      paymentStatus: payment.paymentStatus,
+      shippingAddress: payment.shippingAddress,
+      purchaseDate: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      receivedSuccessfully: payment.receivedSuccessfully,
+      receivedSuccessfullyDeadline: payment.receivedSuccessfullyDeadline,
+      receivedConfirmedAt: payment.receivedConfirmedAt,
+      product: payment.productId,
+      buyer: payment.buyerId,
+      seller: payment.sellerId,
+      buyerNotes: extraData.buyerNotes || null,
+      sellerNotes: extraData.sellerNotes || null,
+      cancellation: extraData.cancellation || null,
+      timeInfo: {
+        hoursSinceOrder: hoursDiff,
+        isWithin6Hours,
+        timeRemainingMs,
+        editDeadline: new Date(new Date(payment.createdAt).getTime() + (6 * 60 * 60 * 1000))
+      },
+      permissions: {
+        canEditShipping,
+        canCancel,
+        canAddNotes,
+        userRole: isBuyer ? 'buyer' : 'seller'
+      }
+    };
+
+    res.json({
+      success: true,
+      purchase: purchaseDetails
+    });
+  } catch (error) {
+    console.error('Get purchase details for edit error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
