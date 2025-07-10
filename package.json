@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "dev:nocheck": "nodemon --exec ts-node --transpile-only src/index.ts"
+    "dev:nocheck": "nodemon --exec ts-node --transpile-only src/index.ts",
+    "clear-db": "ts-node src/utils/clearDatabase.ts"
   },
   "keywords": "[\"marketplace\", \"students\", \"second-hand\"]",
   "author": "",

@@ -40,7 +40,7 @@ const ProductSchema = new Schema<IProduct>(
     category: {
       type: String,
       required: true,
-      enum: ['books', 'electronics', 'furniture', 'clothing', 'vehicles', 'services', 'other']
+      enum: ['books', 'electronics', 'furniture', 'clothing', 'sports', 'services', 'other']
     },
     condition: {
       type: String,
