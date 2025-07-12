@@ -153,7 +153,7 @@ adminController_1.getMonthlySalesData);
  *                   example: 24910.00
  *                 averageCommissionRate:
  *                   type: number
- *                   example: 0.05
+ *                   example: 0.1
  *                 monthlyProfits:
  *                   type: array
  *                 profitsByPaymentMethod:

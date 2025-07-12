@@ -76,7 +76,7 @@ const PaymentSchema = new mongoose_1.Schema({
     adminCommissionRate: {
         type: Number,
         required: true,
-        default: 0.05, // Default 5% commission
+        default: 0.1,
         min: 0,
         max: 1,
     },

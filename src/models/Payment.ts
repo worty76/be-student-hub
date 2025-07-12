@@ -68,7 +68,7 @@ const PaymentSchema = new Schema<IPayment>(
     adminCommissionRate: {
       type: Number,
       required: true,
-      default: 0.1, // Default 5% commission
+      default: 0.1, 
       min: 0,
       max: 1,
     },

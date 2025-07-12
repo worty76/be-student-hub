@@ -196,6 +196,8 @@ const processMomoIPN = async (ipnData) => {
         payment.transactionId = transId;
         // Set 7-day deadline for receipt confirmation
         payment.receivedSuccessfullyDeadline = (0, moment_1.default)().add(7, 'days').toDate();
+        // Force commission recalculation by marking adminCommissionRate as modified
+        payment.markModified('adminCommissionRate');
         await payment.save();
         // Update product status to sold
         await Product_1.default.findByIdAndUpdate(payment.productId, {

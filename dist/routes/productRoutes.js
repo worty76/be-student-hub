@@ -934,4 +934,157 @@ router.put("/admin/:id/reject", auth_1.authenticate, auth_1.isAdmin, productCont
  *         description: Product not found
  */
 router.post("/:id/purchase", auth_1.authenticate, productController.purchaseProduct);
+/**
+ * @swagger
+ * /api/products/purchases/{orderId}/details:
+ *   get:
+ *     summary: Get detailed purchase information for editing
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Purchase details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 purchase:
+ *                   type: object
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to view this purchase
+ *       404:
+ *         description: Purchase not found
+ */
+router.get("/purchases/:orderId/details", auth_1.authenticate, productController.getPurchaseDetailsForEdit);
+/**
+ * @swagger
+ * /api/products/purchases/{orderId}/shipping-address:
+ *   put:
+ *     summary: Update shipping address for a purchase
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - shippingAddress
+ *             properties:
+ *               shippingAddress:
+ *                 type: string
+ *                 description: New shipping address
+ *     responses:
+ *       200:
+ *         description: Shipping address updated successfully
+ *       400:
+ *         description: Invalid request or purchase cannot be edited
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Purchase not found
+ */
+router.put("/purchases/:orderId/shipping-address", auth_1.authenticate, productController.updatePurchaseShippingAddress);
+/**
+ * @swagger
+ * /api/products/purchases/{orderId}/notes:
+ *   put:
+ *     summary: Add or update purchase notes
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - notes
+ *             properties:
+ *               notes:
+ *                 type: string
+ *                 description: Notes to add or update
+ *               noteType:
+ *                 type: string
+ *                 enum: [buyer, seller]
+ *                 default: buyer
+ *                 description: Type of note (automatically determined by user role)
+ *     responses:
+ *       200:
+ *         description: Notes updated successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to edit this purchase
+ *       404:
+ *         description: Purchase not found
+ */
+router.put("/purchases/:orderId/notes", auth_1.authenticate, productController.updatePurchaseNotes);
+/**
+ * @swagger
+ * /api/products/purchases/{orderId}/cancel:
+ *   post:
+ *     summary: Cancel a purchase
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Order ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Purchase cancelled successfully
+ *       400:
+ *         description: Purchase cannot be cancelled
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Purchase not found
+ */
+router.post("/purchases/:orderId/cancel", auth_1.authenticate, productController.cancelPurchase);
 exports.default = router;

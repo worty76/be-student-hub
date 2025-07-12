@@ -207,9 +207,11 @@ export const handleVNPayReturn = async (req: Request, res: Response): Promise<vo
     }
     
     if (responseCode === '00' && transactionStatus === '00') {
-      // Update payment status
+      // Update payment status and force commission recalculation
       payment.paymentStatus = 'completed';
       payment.transactionId = transactionId;
+      // Force commission recalculation by marking adminCommissionRate as modified
+      payment.markModified('adminCommissionRate');
       await payment.save();
 
       // Update product status to sold
@@ -299,6 +301,8 @@ export const handleVNPayIPN = async (req: Request, res: Response): Promise<void>
       payment.transactionId = vnpParams.vnp_TransactionNo as string;
       // Set 7-day deadline for receipt confirmation
       payment.receivedSuccessfullyDeadline = moment().add(7, 'days').toDate();
+      // Force commission recalculation by marking adminCommissionRate as modified
+      payment.markModified('adminCommissionRate');
       await payment.save();
       
       // Update product status to sold

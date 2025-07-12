@@ -188,9 +188,11 @@ const handleVNPayReturn = async (req, res) => {
             return;
         }
         if (responseCode === '00' && transactionStatus === '00') {
-            // Update payment status
+            // Update payment status and force commission recalculation
             payment.paymentStatus = 'completed';
             payment.transactionId = transactionId;
+            // Force commission recalculation by marking adminCommissionRate as modified
+            payment.markModified('adminCommissionRate');
             await payment.save();
             // Update product status to sold
             const product = await Product_1.default.findByIdAndUpdate(payment.productId, {
@@ -264,6 +266,8 @@ const handleVNPayIPN = async (req, res) => {
             payment.transactionId = vnpParams.vnp_TransactionNo;
             // Set 7-day deadline for receipt confirmation
             payment.receivedSuccessfullyDeadline = (0, moment_1.default)().add(7, 'days').toDate();
+            // Force commission recalculation by marking adminCommissionRate as modified
+            payment.markModified('adminCommissionRate');
             await payment.save();
             // Update product status to sold
             await Product_1.default.findByIdAndUpdate(payment.productId, {
@@ -451,9 +455,13 @@ const getUserPurchaseHistory = async (req, res) => {
         const filter = {
             buyerId: userId,
         };
-        // Add status filter
+        // Add status filter - exclude failed/canceled purchases by default
         if (status && status !== 'all') {
             filter.paymentStatus = status;
+        }
+        else if (!status || status === 'completed') {
+            // Explicitly exclude failed/canceled purchases by default
+            filter.paymentStatus = { $ne: 'failed' };
         }
         // Add amount range filter
         if (minAmount || maxAmount) {
